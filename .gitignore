@@ -1,0 +1,15 @@
+# python directory
+venv/*
+__pycache__/*
+sample*.py
+
+#latex
+report/*.aux
+report/*.bbl
+report/*.blg
+report/*.log
+report/*.synctex.gz
+report/*.toc
+
+#OS generated files
+.DS_Store

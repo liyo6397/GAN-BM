@@ -1,0 +1,121 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage[a4paper, total={7in, 10in}]{geometry}
+\usepackage{subcaption}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{statement}{Statement}[section]
+\newtheorem{example}{Example}[section]
+\newtheorem{proposition}{Proposition}[section]
+\newtheorem{lemma}{Lemma}[section]
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
+
+\begin{document}
+		\section{Stochastic Process}
+		\subsection{Geometirc Brownian Motion}
+		
+			%\subsection{Brownian path}
+				The stochastic process $X_t$ is said to follow GBM if it satisfying the following SDE
+				
+				\begin{equation}
+					dX_t = \mu X_tdt + \sigma X_t dW_t 
+				\end{equation}
+				
+				$W$ is the Brownian motion which determine the process from beginning $S_{t=0}$ to $S_{t=T}$.
+				
+				\begin{equation}
+					W_{k} = \sum_{t=1}^{k} b_{t}, \ \ k = 1, \dots, m
+				\end{equation}
+				 where $b$ is the added randomness to the model.
+				 which stores a random number coming from the standard normal distribution $N(0, 1)$.
+			
+			The solution of above SDE has the analytic solution
+			
+			\begin{equation}
+				S_{k} = S_{0} \prod_{i=1}^{k}e^{\left(\mu-\frac{1}{2}\sigma^{2}\right)t+\sigma W(t)}
+			\end{equation}
+			
+			
+				
+				
+	
+	\subsection{Ornstein-Uhlenbeck process}
+	The Ornstein-Uhlenbeck process differential equation is given by
+	\begin{equation}
+		dX_t = aX_tdt + \sigma dW_t 
+		\label{eq:ornuh_diff}
+	\end{equation}
+	An additional drift term is sometimes added:
+	\begin{equation}
+	dX_t = \sigma dW_t +a (\mu-x_t)dt
+	\label{eq:ornuh_diff_mean}
+	\end{equation}
+	where $\sigma$ and $a$ is constants and $\{W_t, t \leq 0\}$ is a standard Brownian motion.
+	\begin{equation}
+		X_t = e^{at}X_0 + \sigma \int_{0}^{t}e^{a(s-t)}dW_s
+			\end{equation}
+	
+	To approximate the numerical solution, we use Euler-Maruyama method to estimate $X_t$.
+	
+	Take (\ref{eq:ornuh_diff_mean}) for example. 
+	First, partition the interval $[0,T]$ into $N$ equidistance sunintervals. 
+	Then, recursively solving $X_{n+1}$ by
+	\begin{equation}
+		X_{n+1} = X_{n} + a (\mu-x_t) \bigtriangleup t+ \sigma \bigtriangleup dW_s
+	\end{equation}
+	where $\bigtriangleup W_n$ is obtained by sampling a random number from normal distribution with expected value zero and variance $\bigtriangleup t$.
+	
+	\section{Model}
+	\subsection{Generative Adversarial Networks (GANs)}
+	The optimizing approach for GAN is based on \cite{goodfellow}.
+	
+	
+	 During the training, discriminator $D$ and generator $G$ play the following two-player minimax game during the training. 
+	In the first inner loop of training, 
+	we update the discriminator by ascending its stochastic gradient:
+	\begin{equation}
+		\bigtriangledown_{x_d} \frac{1}{m} \sum_{t=1}^{m} \left[ \log D(x^{\left(t\right)}) + \log \left(1-D\left(G\left(z^{(t)}\right)\right)\right)\right]
+	\end{equation}
+	After finishing the first inner loop of training, we update the generator by descending its stochastic gradient with only one step:
+	\begin{equation}
+		\bigtriangledown_{x_g} \frac{1}{m} \sum_{t=1}^{m} \log \left(1-D\left(G\left(z^{(t)}\right)\right)\right)
+	\end{equation}
+	where $x_d$ and $x_g$ represents the variables for discriminator and generator; $t$ indicates the time for each vector; $z^{(t)}$ is noise sample.
+	
+	\section{Experiments}
+	\subsection{Geometric Brownian Motion}
+	The distribution at $S(2)$ for geometric brownian motion and GAN is presented in Figure \ref{fig:dstr}.
+	
+	The path for geometric brownian motion and GAN is presented in Figure \ref{fig:path}. In here, the input is the single vector. 
+	We expect GAN can generate the path of output similar to the input. 
+	\begin{figure}
+		\begin{subfigure}[b]{0.5\textwidth}
+			\includegraphics[width=\textwidth]{bm_dstr.png}
+		\end{subfigure}
+	\hfill
+		\begin{subfigure}[b]{0.5\textwidth}
+		\includegraphics[width=\textwidth]{gan_dstr.png}
+		\end{subfigure}
+	\caption{Distribution in specific day}
+		\label{fig:dstr}
+	\end{figure}
+		%\begin{figure}
+		%	\centering
+		%	\includegraphics[width=0.7\textwidth]{bm_stock.png}
+		%	\label{fig: bm}
+		%\end{figure}
+	
+	\begin{figure}
+		\centering
+		\includegraphics[width=0.7\textwidth]{path_comparision.png}
+		\caption{Path Simulation}
+		\label{fig:path}
+	\end{figure}
+	
+	
+	\bibliographystyle{unsrt}
+	\bibliography{gan-BM}
+\end{document}
