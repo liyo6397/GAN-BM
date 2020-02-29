@@ -1,21 +1,21 @@
 import numpy as np
 import time
-import quandl
+#import quandl
 import pandas as pd
 
 class Geometric_BM():
 
-    def __init__(self,number_inputs,time_window):
+    def __init__(self,number_inputs,time_window,mu,sigma):
 
 
         # Parameter Assignments
         self.So = 10
         self.dt = 1  # day   # User input
         self.T = time_window
-        self.N = self.T / self.dt
-        self.mu = 0
-        self.sigma = 0.1
-        self.t = np.arange(1, int(self.N) + 1)
+        self.N_days = self.T / self.dt
+        self.mu = mu
+        self.sigma = sigma
+        self.t = np.arange(1, int(self.N_days) + 1)
 
         self.scen_size = number_inputs  # User input
 
@@ -29,7 +29,7 @@ class Geometric_BM():
 
         dt = 0.01
 
-        b = {str(scen): np.random.normal(0, 1, int(self.N)) for scen in range(1, self.scen_size + 1)}
+        b = {str(scen): np.random.normal(0, 1, int(self.N_days)) for scen in range(1, self.scen_size + 1)}
         W = {str(scen): b[str(scen)].cumsum() for scen in range(1, self.scen_size + 1)}
 
         return b, W
@@ -55,10 +55,21 @@ class Orn_Uh():
         self.So = 10
         self.dt = 1  # day   # User input
         self.T = unknown_days
-        self.N = self.T / self.dt
+        self.N_days = self.T / self.dt
         self.mu = 0 #mean
         self.sigma = 0.1 # Standard deviation.
-        self.t = np.arange(1, int(self.N) + 1)
+        self.t = np.arange(1, int(self.N_days) + 1)
         self.tau = 0.05 #time constant
 
+
+if __name__ == "__main__":
+    number_inputs = 10
+    unknown_days = 5
+    gbm = Geometric_BM(number_inputs, unknown_days)
+
+    b,W = gbm.Brownian()
+
+    S = np.array([W[str(scen)] for scen in range(1, number_inputs + 1)])
+
+    print(S)
 

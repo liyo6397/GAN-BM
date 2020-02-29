@@ -2,6 +2,9 @@
 venv/*
 __pycache__/*
 sample*.py
+example*.py
+*.png
+images/*
 
 #latex
 report/*.aux
@@ -13,3 +16,4 @@ report/*.toc
 
 #OS generated files
 .DS_Store
+.idea*
