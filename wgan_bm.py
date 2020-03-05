@@ -16,12 +16,13 @@ from sklearn import preprocessing
 
 class WGAN():
 
-    def __init__(self, paths, number_inputs):
+    def __init__(self, paths, number_inputs,method):
 
         # Input
         self.paths = paths
         self.N = paths.shape[0]
         self.unknown_days = paths.shape[1]
+        self.noise_method = method
 
         # GAN
         self.num_units = 10
@@ -37,6 +38,10 @@ class WGAN():
 
 
         # Loss function
+        #self.g_samp = tf.zeros(shape=[self.N, self.paths.shape[1]], dtype=tf.float64)
+        self.g_samp = np.zeros((self.N, self.paths.shape[1]))
+        self.lip_sum = self.lip_loss()
+        #self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)+self.lip_sum
         self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)
         self.G_loss = -tf.reduce_mean(self.D_output_fake)
 
@@ -49,27 +54,47 @@ class WGAN():
     def sample_Z(self, m, n):
 
         # random distribution
+        if self.noise_method =='uniform':
         #z_process= self.random_distribution(m,n)
+            z_process = np.random.uniform(-1, 1, size=[m, n])
+        if self.noise_method == 'normal':
+            z_process = np.random.normal(0, 1, size=[m, n])
+
+        if self.noise_method == 'brownian':
+            z_process = self.Brownian()
+
+        return z_process
+
+
 
         # Brownian Motion
-        z_process = self.Brownian()
+        #z_process = self.Brownian()
 
         return z_process
 
     def random_distribution(self, m, n):
 
-        # return np.random.uniform(-1, 1, size=[m, n])
+        return np.random.uniform(-1, 1, size=[m, n])
         # np.random.normal(-1, 1, int(self.N))
-        return np.random.normal(0, 1, size=[m, n])
+        #return np.random.normal(0, 1, size=[m, n])
 
     def Brownian(self):
 
-        b = {str(scen): np.random.normal(0, 1, int(self.unknown_days)) for scen in range(1, self.N + 1)}
+        delta = 0.2
+        dt = self.unknown_days/(self.unknown_days-1)
+
+        b = {str(scen): np.random.normal(0, scale=delta*dt, size = int(self.unknown_days)) for scen in range(1, self.N + 1)}
         W = {str(scen): b[str(scen)].cumsum() for scen in range(1, self.N + 1)}
 
         W_process = np.array([W[str(scen)] for scen in range(1, self.N + 1)])
 
         return W_process
+
+    def Homo_Poisson(self,m,n):
+
+        rand_poi = np.random.poisson(0.1,size=[m,n])
+
+
 
     def generator(self, z):
 
@@ -115,18 +140,56 @@ class WGAN():
 
         return D_solver, G_solver, clip_D
 
+    def norm2(self,distance):
+
+        dis_sum = np.zeros(self.N)
+
+        for i, dis in enumerate(distance):
+            dis_sum[i] = np.sum(dis)
+
+        max_sum = np.max(np.abs(dis_sum))
+
+        return max_sum
+
+
+    def lip_loss(self):
+
+
+        #self.paths_tf = self.sess.run(self.paths_tf,feed_dict={self.paths_tf: paths})
+
+        v =0.01
+
+        distance = self.paths-self.g_samp
+        norm2_dis = np.linalg.norm(distance,2)
+
+        #norm2_dis = self.norm2(distance)
+
+        lip = np.abs(np.abs(self.D_output_real-self.D_output_fake)/tf.abs(norm2_dis)-1.)
+
+        lip_sum = tf.reduce_sum(lip)
+
+        lip = v*lip_sum
+
+
+        #D_loss = -tf.reduce_mean(self.D_output_real) + tf.reduce_mean(self.D_output_fake)+lip
+        #G_loss = -tf.reduce_mean(self.D_output_fake)
+
+        return lip
+
+
+
     def train(self, itrs):
 
         tf_dict = {self.paths_tf: self.paths, self.z_tf: self.sample_Z(self.N, self.paths.shape[1])}
 
         start_time = time.time()
         for it in range(itrs):
-            if it == itrs - 1:
-                new_samples = self.sess.run(self.G_sample, tf_dict)
+            #if it == itrs - 1:
+            self.g_samp = self.sess.run(self.G_sample, tf_dict)
 
             for it_d in range(5):
                 # Run disciminator solver
-                _, D_loss_curr, _ = self.sess.run([self.D_solver, self.D_loss, self.clip_D], tf_dict)
+                _, D_loss_curr,_ = self.sess.run([self.D_solver, self.D_loss,self.clip_D], tf_dict)
 
             # Run generator solver
             _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
@@ -138,7 +201,7 @@ class WGAN():
                 # if it == itrs-1:
                 #    print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
 
-        return new_samples
+        return self.g_samp
 
     def predict(self, paths):
 
@@ -237,6 +300,8 @@ class Plot_result():
         paths_org = np.array([org_samp[str(scen)] for scen in range(n_ipts)])
 
         # plt.text(0, 0.1, r"The distribution of noise data: Brownian Motion")
+        mu = 0
+        sigma = 0.1
 
         for scen in range(n_ipts):
             plt.title(
@@ -247,10 +312,25 @@ class Plot_result():
             xmin = min(path_org.min(), path.min())
             xmax = max(path_org.max(), path.max())
 
-            s, mu, scale = stats.lognorm.fit(path_org, floc=0)
-            x = np.linspace(0, xmax, 10000)
+            #s, mu, scale = stats.lognorm.fit(path_org, floc=0)
 
-            pdf = stats.lognorm.pdf(x, s, loc=mu, scale=scale)
+
+            t = scen+1
+            mean = np.exp((mu-sigma**2/2)*t)
+            var = np.exp(t*sigma**2)-1
+            if var==0:
+                std = 0
+            else:
+                std = np.sqrt(var)
+            x = np.linspace(0, 10, 10000)
+            #x = np.linspace(stats.lognorm.ppf(0.01, s=std,loc=mean),stats.lognorm.ppf(0.99, s=std, loc=mean), 100)
+            #print(x)
+
+            #pdf = stats.lognorm.pdf(x, loc=mean, scale=std)
+            pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2))/ (x * std * np.sqrt(2 * np.pi)))
+            print(mean)
+            print(std)
+
             # norm_path = self.normalize(path)
             # norm_path_org = self.normalize(path_org)
             # A, critical, sig = stats.anderson_ksamp([path,pdf])
@@ -259,12 +339,12 @@ class Plot_result():
 
             # sns.kdeplot(pdf)
             plt.plot(x, pdf, 'k', label="Geometric Brownian Motion")
-            # sns.kdeplot(path)
+            #sns.kdeplot(path)
 
             plt.hist(path, 50, density=True, stacked=True)
             # plt.text(0, 0.1, r'$AD value: {}$'.format(str(A)))
             # plt.legend()
-            #plt.savefig("dstr{}_bm_gan.png".format(str(scen)), bbox_inches='tight')
+            #plt.savefig("dstr{}_b_the.png".format(str(scen)), bbox_inches='tight')
             plt.show()
 
     def aderson_test(self, g_sample, s, mu, scale):
@@ -335,7 +415,7 @@ class Plot_result():
     def plot_path(self, paths, scen_size):
 
         for i in range(scen_size):
-            plt.title("GAN")
+            plt.title("WGAN")
             plt.plot(paths[i, :])
             plt.ylabel('Sample values')
             plt.xlabel('Prediction Days')
@@ -349,6 +429,7 @@ if __name__ == "__main__":
     unknown_days = 10
     mu = 0
     sigma = 0.1
+    method = "uniform"
 
     gbm = Geometric_BM(number_inputs, unknown_days, mu, sigma)
     scen_size = gbm.scen_size
@@ -359,10 +440,10 @@ if __name__ == "__main__":
     # graph.plot_training_dstr(paths, unknown_days)
 
     # GAN-distribution
-    wgan = WGAN(paths, number_inputs)
+    wgan = WGAN(paths, number_inputs,method)
     wgan_samples = {}
     o_samples = {}
-    paths_pred =wgan.train(20000)
+    paths_pred =wgan.train(10000)
 
     for idx in range(unknown_days):
         Simu = Simulation(idx_elment=idx)

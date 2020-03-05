@@ -50,10 +50,10 @@ class GAN():
     def sample_Z(self,m,n):
 
         # random distribution
-        z_process= self.random_distribution(m,n)
+        #z_process= self.random_distribution(m,n)
 
         # Brownian Motion
-        #z_process = self.Brownian()
+        z_process = self.Brownian()
 
         return z_process
 
@@ -246,35 +246,40 @@ class Plot_result():
 
         #plt.text(0, 0.1, r"The distribution of noise data: Brownian Motion")
 
+        mu = 0
+        sigma= 0.1
+        fig = plt.figure(figsize=(8, 8))
+        fig.subplots_adjust(hspace=0.4, wspace=0.2,top=0.95,bottom=0.05)
+
+
+        #("Data distribution:\n Geometric Brownian Motion and GAN Distribution", fontsize=10)
         for scen in range(n_ipts):
-            plt.title("Data distribution:\n Geometric Brownian Motion and generator sampling-{}th day".format(str(scen)))
+
             path = paths[scen,:]
-            path_org = paths_org[scen,:]
+            t = scen + 1
+            mean = np.exp((mu - sigma ** 2 / 2) * t)
+            var = np.exp(t * sigma ** 2) - 1
+
+            std = np.sqrt(var)
+
+            x = np.linspace(2e-16, 10, 10000)
+            pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2)) / (x * std * np.sqrt(2 * np.pi)))
+
+            #ax[0,0].plot
+            ax = fig.add_subplot(4,3,t)
+            ax.plot(x, pdf, 'k', label="Geometric Brownian Motion")
+            ax.hist(path, 50, density=True, stacked=True)
 
 
+            ax.title.set_text("{}th day".format(str(t)))
 
-            xmin = min(path_org.min(),path.min())
-            xmax = max(path_org.max(),path.max())
+            #plt.plot(x, pdf, 'k', label="Geometric Brownian Motion")
+            #plt.hist(path, 50, density=True, stacked=True)
 
-            s, mu, scale = stats.lognorm.fit(path_org, floc=0)
-            x = np.linspace(0, xmax, 10000)
-
-            pdf = stats.lognorm.pdf(x, s, loc=mu, scale=scale)
-            #norm_path = self.normalize(path)
-            #norm_path_org = self.normalize(path_org)
-            #A, critical, sig = stats.anderson_ksamp([path,pdf])
-            #print(A)
-            #print(sig)
-
-            #sns.kdeplot(pdf)
-            plt.plot(x, pdf, 'k', label="Geometric Brownian Motion")
-            #sns.kdeplot(path)
-
-            plt.hist(path,50,density=True,stacked=True)
-            #plt.text(0, 0.1, r'$AD value: {}$'.format(str(A)))
-            #plt.legend()
             #plt.savefig("dstr{}_bm_gan.png".format(str(scen)), bbox_inches='tight')
-            plt.show()
+        plt.show()
+        #plt.tight_layout()
+        #plt.close()
 
     def aderson_test(self,g_sample,s,mu,scale):
 
@@ -306,6 +311,8 @@ class Plot_result():
         for i in range(scen_size):
             plt.title("Geometic Brownian Motion")
             plt.plot(paths[i,:])
+            plt.ylabel('Sample values')
+            plt.xlabel('Time')
             #sns.kdeplot(paths, label='{}th day'.format(str(i)))
         #plt.show()
 
@@ -356,7 +363,7 @@ class Plot_result():
             plt.title("GAN")
             plt.plot(paths[i, :])
             plt.ylabel('Sample values')
-            plt.xlabel('Prediction Days')
+            plt.xlabel('Time')
         #plt.show()
 
 if __name__ == "__main__":
@@ -387,13 +394,13 @@ if __name__ == "__main__":
     gan = GAN(paths, number_inputs)
     gan_samples = {}
     o_samples = {}
-    pathsDstr_pred = gan.train(20000)
+    paths_pred = gan.train(20000)
     #pathsDstr_pred = gan.predict(paths)
     
     for idx in range(unknown_days):
         Simu = Simulation(idx_elment=idx)
 
-        new_samples = Simu.collect_pts(pathsDstr_pred)
+        new_samples = Simu.collect_pts(paths_pred)
         gan_samples[str(idx)] = new_samples
 
         original_samples = Simu.collect_pts(paths)
@@ -411,11 +418,12 @@ if __name__ == "__main__":
     plot_size = 1000
     paths_pred = gan.predict(paths)
     #Plot
-    #plot_size = scen_size
+    #plot_size = scen_size'''
+    plot_size = 100
     graph.plot_training_path(paths,plot_size)
     plt.show()
     graph.plot_path(paths_pred, plot_size)
-    plt.show()'''
+    plt.show()
 
 
 
