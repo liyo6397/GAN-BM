@@ -9,7 +9,7 @@ class Geometric_BM():
 
 
         # Parameter Assignments
-        self.So = 10
+        self.So = 1
         self.dt = 1  # day   # User input
         self.T = time_window
         self.N_days = self.T / self.dt
@@ -45,6 +45,8 @@ class Geometric_BM():
 
         S = np.array([self.So * np.exp(self.drift + self.diffu[str(scen)]) for scen in range(1, self.scen_size + 1)])
         S = np.hstack((np.array([[self.So] for scen in range(self.scen_size)]), S))  # add So to the beginning series
+        #S = np.array([np.exp(self.drift + self.diffu[str(scen)]) for scen in range(1, self.scen_size + 1)])
+        #S = np.hstack((np.array([[self.So] for scen in range(self.scen_size)]), S))  # add So to the beginning series
 
         return S
 

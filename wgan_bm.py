@@ -44,6 +44,7 @@ class WGAN():
         #self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)+self.lip_sum
         self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)
         self.G_loss = -tf.reduce_mean(self.D_output_fake)
+        #self.D_group_loss, self.G_group_loss = self.group_loss()
 
 
         # Optimizing
@@ -66,15 +67,9 @@ class WGAN():
         return z_process
 
 
-
-        # Brownian Motion
-        #z_process = self.Brownian()
-
-        return z_process
-
     def random_distribution(self, m, n):
 
-        return np.random.uniform(-1, 1, size=[m, n])
+        return np.random.uniform(0, 1, size=[m, n])
         # np.random.normal(-1, 1, int(self.N))
         #return np.random.normal(0, 1, size=[m, n])
 
@@ -93,6 +88,19 @@ class WGAN():
     def Homo_Poisson(self,m,n):
 
         rand_poi = np.random.poisson(0.1,size=[m,n])
+
+    def group_Loss(self):
+
+        for idx in range(unknown_days):
+            Simu = Simulation(idx_elment=idx)
+
+            new_samples = Simu.collect_pts(paths_pred)
+            wgan_samples[str(idx)] = new_samples
+
+            original_samples = Simu.collect_pts(paths)
+            o_samples[str(idx)] = original_samples
+
+
 
 
 
@@ -288,7 +296,7 @@ class Plot_result():
 
         return data
 
-    def plot_dstr_set(self, gan_samp, org_samp, n_ipts):
+    def plot_dstr_set(self, gan_samp, org_samp, n_ipts,s0,save):
 
         font = {'family': 'serif',
                 'color': 'darkred',
@@ -302,50 +310,37 @@ class Plot_result():
         # plt.text(0, 0.1, r"The distribution of noise data: Brownian Motion")
         mu = 0
         sigma = 0.1
+        fig = plt.figure(figsize=(8, 8))
+        fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
 
-        for scen in range(n_ipts):
-            plt.title(
-                "Data distribution:\n Geometric Brownian Motion and generator sampling-{}th day".format(str(scen)))
-            path = paths[scen, :]
-            path_org = paths_org[scen, :]
+        for t in range(1,n_ipts):
+            #plt.title(
+            #    "Data distribution:\n Geometric Brownian Motion and generator sampling-{}th day".format(str(scen)))
+            path = paths[t, :]
+            mean = s0 * np.exp((mu + sigma ** 2 / 2) * t)
+            var = s0 ** 2 * np.exp(2 * mu * t + t * sigma ** 2) * (np.exp(t * sigma ** 2) - 1)
+            std = np.sqrt(var)
 
-            xmin = min(path_org.min(), path.min())
-            xmax = max(path_org.max(), path.max())
-
-            #s, mu, scale = stats.lognorm.fit(path_org, floc=0)
+            xmin = stats.lognorm(std, scale=np.exp(mean)).ppf(0.001)
+            xmax = stats.lognorm(std, scale=np.exp(mean)).ppf(0.999)
 
 
-            t = scen+1
-            mean = np.exp((mu-sigma**2/2)*t)
-            var = np.exp(t*sigma**2)-1
-            if var==0:
-                std = 0
-            else:
-                std = np.sqrt(var)
-            x = np.linspace(0, 10, 10000)
-            #x = np.linspace(stats.lognorm.ppf(0.01, s=std,loc=mean),stats.lognorm.ppf(0.99, s=std, loc=mean), 100)
-            #print(x)
-
-            #pdf = stats.lognorm.pdf(x, loc=mean, scale=std)
+            x = np.linspace(xmin, xmax, 10000)
             pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2))/ (x * std * np.sqrt(2 * np.pi)))
-            print(mean)
-            print(std)
 
-            # norm_path = self.normalize(path)
-            # norm_path_org = self.normalize(path_org)
-            # A, critical, sig = stats.anderson_ksamp([path,pdf])
-            # print(A)
-            # print(sig)
+            #plt.plot(x, pdf, 'k', label="Geometric Brownian Motion")
+            #plt.hist(path, 50, density=True, stacked=True)
+            ax = fig.add_subplot(4, 3, t)
+            ax.plot(x, pdf, 'k', label="Geometric Brownian Motion")
+            ax.hist(path, 20, density=True)
 
-            # sns.kdeplot(pdf)
-            plt.plot(x, pdf, 'k', label="Geometric Brownian Motion")
-            #sns.kdeplot(path)
 
-            plt.hist(path, 50, density=True, stacked=True)
-            # plt.text(0, 0.1, r'$AD value: {}$'.format(str(A)))
-            # plt.legend()
-            #plt.savefig("dstr{}_b_the.png".format(str(scen)), bbox_inches='tight')
-            plt.show()
+            ax.title.set_text("{}th day".format(str(t)))
+            ax.set(xlabel="x", ylabel="PDF")
+            if save:
+                plt.savefig("images/dstr_wgan_{}1000.png".format(str(method)), bbox_inches='tight')
+
+        plt.show()
 
     def aderson_test(self, g_sample, s, mu, scale):
 
@@ -370,6 +365,7 @@ class Plot_result():
             plt.title("Geometic Brownian Motion")
             plt.plot(paths[i, :])
             # sns.kdeplot(paths, label='{}th day'.format(str(i)))
+            plt.savefig("images/path_gbm_{}100.png".format(str(method)), bbox_inches='tight')
         # plt.show()
 
     def plot_training_dstr(self, paths, unknown_days):
@@ -412,38 +408,75 @@ class Plot_result():
             plt.plot(x, stats.lognorm.pdf(x, mu, sigma))'''
             plt.show()
 
-    def plot_path(self, paths, scen_size):
+    def plot_path(self, paths, scen_size,save):
+
 
         for i in range(scen_size):
             plt.title("WGAN")
             plt.plot(paths[i, :])
             plt.ylabel('Sample values')
             plt.xlabel('Prediction Days')
-        # plt.show()
+        if save:
+            plt.savefig("images/path_wgan_{}100.png".format(str(method)), bbox_inches='tight')
+        plt.show()
+
+    def plot_2path(self,gbm_paths,model_paths,method):
+
+        fig = plt.figure(figsize=(8, 3))
+        #fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
+
+        paths = gbm_paths
+        for k in range(2):
+            if k ==0:
+                ax = fig.add_subplot(1, 2, k+1)
+            else:
+                ax = fig.add_subplot(1, 2, k + 1,sharey=ax)
+            #for i in range(1,scen_size):
+            for i in range(scen_size):
+                ax.plot(paths[i, :])
+            if k == 0:
+                ax.title.set_text("Geometric Brownian Motion")
+            else:
+                ax.title.set_text("WGAN-{}".format(str(method)))
+            paths = model_paths
+
+        print(len(gbm_paths))
+        print(len(model_paths))
+
+
+        if save:
+            fig.savefig("images/path_wgan_{}1000.png".format(str(method)), bbox_inches='tight')
+        plt.show()
+
 
 
 if __name__ == "__main__":
 
     # BM
-    number_inputs = 2000
-    unknown_days = 10
+    number_inputs = 100
+    unknown_days = 11
     mu = 0
     sigma = 0.1
-    method = "uniform"
+    method = "brownian"
+    iteration = 20000
+    save = False
 
     gbm = Geometric_BM(number_inputs, unknown_days, mu, sigma)
     scen_size = gbm.scen_size
     sigma = gbm.sigma
+    s0 = gbm.So
     paths = gbm.predict_path()
-    paths = paths[:, 1:]
+    #paths = paths[1:,:]
+
     graph = Plot_result()
-    # graph.plot_training_dstr(paths, unknown_days)
+
 
     # GAN-distribution
     wgan = WGAN(paths, number_inputs,method)
     wgan_samples = {}
     o_samples = {}
-    paths_pred =wgan.train(10000)
+    paths_pred =wgan.train(iteration)
+    #paths_pred = [p * s0 for p in paths_pred]
 
     for idx in range(unknown_days):
         Simu = Simulation(idx_elment=idx)
@@ -455,13 +488,12 @@ if __name__ == "__main__":
         o_samples[str(idx)] = original_samples
 
 
-    graph.plot_dstr_set(wgan_samples, o_samples, unknown_days)
+
+
+    graph.plot_dstr_set(wgan_samples, o_samples, unknown_days,s0, save)
 
     # Plot GAN-paths
-    plot_size = scen_size
-    graph.plot_training_path(paths,plot_size)
-    plt.show()
-    graph.plot_path(paths_pred, plot_size)
+    graph.plot_2path(paths, paths_pred,method)
     plt.show()
 
 

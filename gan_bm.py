@@ -1,11 +1,11 @@
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
 import time
-from stoch_process import Geometric_BM
-import seaborn as sns
+
+import matplotlib.pyplot as plt
+import numpy as np
 import scipy.stats as stats
-from sklearn import preprocessing
+import tensorflow as tf
+
+from stoch_process import Geometric_BM
 
 
 # defining functions for the two networks.
@@ -16,13 +16,14 @@ from sklearn import preprocessing
 
 class GAN():
 
-    def __init__(self,paths, number_inputs):
+    def __init__(self,paths, number_inputs,method):
 
         #Input
         self.paths = paths
         #self.layers = layers
         self.N = paths.shape[0]
         self.unknown_days = paths.shape[1]
+        self.noise_method = method
 
         # GAN
         self.num_units = 10
@@ -50,18 +51,21 @@ class GAN():
     def sample_Z(self,m,n):
 
         # random distribution
-        #z_process= self.random_distribution(m,n)
+        if self.noise_method == 'uniform':
+            # z_process= self.random_distribution(m,n)
+            z_process = np.random.uniform(-1, 1, size=[m, n])
+        if self.noise_method == 'normal':
+            z_process = np.random.normal(0, 1, size=[m, n])
 
-        # Brownian Motion
-        z_process = self.Brownian()
+        if self.noise_method == 'brownian':
+            z_process = self.Brownian()
 
         return z_process
 
     def random_distribution(self,m,n):
 
-         #return np.random.uniform(-1, 1, size=[m, n])
-         #np.random.normal(-1, 1, int(self.N))
-         return np.random.normal(0, 1, size=[m, n])
+         return np.random.uniform(-1, 1, size=[m, n])
+         #return np.random.normal(0, 1, size=[m, n])
 
     def Brownian(self):
 
@@ -233,7 +237,7 @@ class Plot_result():
 
 
 
-    def plot_dstr_set(self,gan_samp, org_samp, n_ipts):
+    def plot_dstr_set(self,gan_samp, org_samp, n_ipts, s0,mu,sigma, method,save):
 
         font = {'family': 'serif',
                 'color': 'darkred',
@@ -246,37 +250,45 @@ class Plot_result():
 
         #plt.text(0, 0.1, r"The distribution of noise data: Brownian Motion")
 
-        mu = 0
-        sigma= 0.1
         fig = plt.figure(figsize=(8, 8))
-        fig.subplots_adjust(hspace=0.4, wspace=0.2,top=0.95,bottom=0.05)
+        fig.subplots_adjust(hspace=0.5, wspace=0.4,top=0.95,bottom=0.05)
 
 
         #("Data distribution:\n Geometric Brownian Motion and GAN Distribution", fontsize=10)
-        for scen in range(n_ipts):
+        for t in range(1,n_ipts):
 
-            path = paths[scen,:]
-            t = scen + 1
-            mean = np.exp((mu - sigma ** 2 / 2) * t)
-            var = np.exp(t * sigma ** 2) - 1
+            path = paths[t,:]
+            #t = scen
+            mean = s0*np.exp((mu - sigma ** 2 / 2) * t)
+            #var = s0**2*np.exp(t * sigma ** 2) - 1
+            var = s0 ** 2 * np.exp(t * sigma ** 2) - 1
 
             std = np.sqrt(var)
 
-            x = np.linspace(2e-16, 10, 10000)
+            xmin = stats.lognorm(std,scale=np.exp(mean)).ppf(0.001)
+            xmax = stats.lognorm(std,scale=np.exp(mean)).ppf(0.999)
+            print(xmin)
+            print(xmax)
+
+            #x = np.linspace(xmin, 10, 10000)
+            x = np.linspace(xmin, xmax, 10000)
             pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2)) / (x * std * np.sqrt(2 * np.pi)))
 
-            #ax[0,0].plot
+
             ax = fig.add_subplot(4,3,t)
             ax.plot(x, pdf, 'k', label="Geometric Brownian Motion")
-            ax.hist(path, 50, density=True, stacked=True)
+            ax.hist(path, 30, density=True)
 
 
             ax.title.set_text("{}th day".format(str(t)))
+            ax.set(xlabel="x",ylabel="PDF")
 
             #plt.plot(x, pdf, 'k', label="Geometric Brownian Motion")
             #plt.hist(path, 50, density=True, stacked=True)
 
-            #plt.savefig("dstr{}_bm_gan.png".format(str(scen)), bbox_inches='tight')
+            #plt.savefig("/images/dstr_gan_{}.png".format(str(method)), bbox_inches='tight')
+        if save:
+            plt.savefig("images/dstr_gan_{}1000.png".format(str(method)), bbox_inches='tight')
         plt.show()
         #plt.tight_layout()
         #plt.close()
@@ -364,15 +376,43 @@ class Plot_result():
             plt.plot(paths[i, :])
             plt.ylabel('Sample values')
             plt.xlabel('Time')
-        #plt.show()
+        plt.savefig("path_gan_{}.png".format(str(method)), bbox_inches='tight')
+        plt.show()
+
+    def plot_2path(self,gbm,model_paths,method):
+
+        fig = plt.figure(figsize=(8, 3))
+        #fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
+
+        paths = gbm
+        for k in range(2):
+            if k == 0:
+                ax = fig.add_subplot(1, 2, k + 1)
+            else:
+                ax = fig.add_subplot(1, 2, k + 1, sharey=ax)
+            for i in range(scen_size):
+                ax.plot(paths[i, :])
+            if k == 0:
+                ax.title.set_text("Geometric Brownian Motion")
+            else:
+                ax.title.set_text("GAN-{}".format(str(method)))
+            paths = model_paths
+
+        if save:
+            fig.savefig("images/path_gan_{}1000.png".format(str(method)), bbox_inches='tight')
+        plt.show()
+
 
 if __name__ == "__main__":
 
     #BM
-    number_inputs = 2000
-    unknown_days = 10
+    number_inputs = 1000
+    unknown_days = 11
     mu = 0
     sigma = 0.1
+    method = 'normal'
+    iteration = 20000
+    save = True
 
 
 
@@ -382,19 +422,17 @@ if __name__ == "__main__":
     scen_size = gbm.scen_size
     sigma = gbm.sigma
     paths = gbm.predict_path()
-    paths = paths[:,1:]
+    s0 = gbm.So
+    #paths = paths[:,1:]
     graph = Plot_result()
     #graph.plot_training_dstr(paths, unknown_days)
 
 
-
-
-
     #GAN-distribution
-    gan = GAN(paths, number_inputs)
+    gan = GAN(paths, number_inputs,method)
     gan_samples = {}
     o_samples = {}
-    paths_pred = gan.train(20000)
+    paths_pred = gan.train(iteration)
     #pathsDstr_pred = gan.predict(paths)
     
     for idx in range(unknown_days):
@@ -409,7 +447,7 @@ if __name__ == "__main__":
     # Plot
 
 
-    graph.plot_dstr_set(gan_samples, o_samples, unknown_days)
+    graph.plot_dstr_set(gan_samples, o_samples, unknown_days,s0, mu, sigma,method, save)
 
 
     # GAN-paths
@@ -419,11 +457,15 @@ if __name__ == "__main__":
     paths_pred = gan.predict(paths)
     #Plot
     #plot_size = scen_size'''
-    plot_size = 100
-    graph.plot_training_path(paths,plot_size)
+    #plot_size = scen_size
+    #graph.plot_training_path(paths,plot_size)
+    #plt.show()
+    #graph.plot_path(paths_pred, plot_size)
+    #plt.show()
+    graph.plot_2path(paths, paths_pred, method)
     plt.show()
-    graph.plot_path(paths_pred, plot_size)
-    plt.show()
+
+
 
 
 
