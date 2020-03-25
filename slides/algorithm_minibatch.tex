@@ -1,0 +1,26 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage[ruled,longend]{algorithm2e}
+\begin{document}
+\begin{algorithm}
+	\textbf{Input:} $x$, The geometric brownian motion paths. $z$, noise data. $D$, discriminator. $G$, generator.
+	
+  \While {$\text{Max Iteration}$}
+  {
+  	$\text{Sample $\{x^{(i)}\}_{j=1}^{M} \sim \mathbf{P}_r$ a batch from real data}$
+  	$\text{Sample $\{z^{(i)}\}_{j=1}^{M} \sim p(z)$ a batch from fake data}$
+  	$\text{Partition real examples into $N$ mini batches }$ \\
+  	\For {$i=0, \dots, N$} 
+  	{
+    	\For {$j=0, \dots, n_{\text{critic}}$} 
+    	{
+    		$D_w \leftarrow \bigtriangledown_{w}\frac{1}{M}[\sum_{k=1}^{M}D_{w}(x_{k}^{(i)})-\sum_{k=1}^{M}G(z^{(i)})]$
+    		$w \leftarrow + \alpha*RMSProp(w,D_w)$
+    		$w \leftarrow \text{clip}(w,-c,c)$
+    	}
+    	$G_w \leftarrow \bigtriangledown_{w}\frac{1}{M}[\sum_{k=1}^{M}D_{w}(z_{k}^{(i)})]$
+    }
+  }
+  \caption{Minibatch for WGAN}
+\end{algorithm}
+\end{document}
