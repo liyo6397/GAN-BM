@@ -3,19 +3,11 @@ seed(1)
 from tensorflow import set_random_seed
 set_random_seed(2)
 
-from numpy.random import seed
-seed(1)
-from tensorflow import set_random_seed
-set_random_seed(2)
-
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 from stoch_process import Geometric_BM
-import seaborn as sns
 import scipy.stats as stats
-from sklearn import preprocessing
 
 
 # defining functions for the two networks.
@@ -29,6 +21,7 @@ class WGAN():
     def __init__(self, paths, method,batch_size):
 
         # Input
+        self.ini_path = paths[:,0]
         self.paths = paths
         self.N = paths.shape[0]
         self.unknown_days = paths.shape[1]
@@ -55,6 +48,7 @@ class WGAN():
 
         #self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)+self.lip_sum
         self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)
+        #self.ini_cond_loss = tf.reduce_mean(tf.sqrt(tf.square(self.G_sample[:,0]-self.ini_path)))
         self.G_loss = -tf.reduce_mean(self.D_output_fake)
         #self.D_group_loss, self.G_group_loss = self.group_loss()
 
@@ -146,9 +140,11 @@ class WGAN():
 
         # Optimizers
         D_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(-self.D_loss, var_list=disc_vars)
+        #Gini_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.ini_cond_loss, var_list=gen_vars)
         G_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.G_loss, var_list=gen_vars)
 
-        return D_solver, G_solver, clip_D
+
+        return D_solver, G_solver, clip_D #, Gini_solver
 
     def create_mini_batches(self,data,b_size):
         mini_batches = []
@@ -254,14 +250,15 @@ class WGAN():
 
         dg_loss = 1
         D_loss = 1
+        DG_loss = 1
+        ini_loss_curr = 1
         it = 1
         ganLoss_d = []
         ganLoss_g = []
 
 
-        while (dg_loss >= converg_crit or (it >= 40001 and dg_loss >= converg_crit*10**(2))):
-        #while (D_loss >= 10 ** (-7) or (it >= 40001 and D_loss >= 10 ** (-6))):
-        #for it in range(itrs):
+        #while ((ini_loss_curr >= converg_crit ) or (it >= 80000 and dg_loss >= converg_crit * 10 ** (1))):
+        while (dg_loss >= converg_crit or (it >= 100000 and dg_loss >= converg_crit*10**(2))):
 
             tf_dict = {self.paths_tf: self.paths, self.z_tf: self.sample_Z(self.N, self.paths.shape[1])}
 
@@ -272,6 +269,7 @@ class WGAN():
                 _, D_loss_curr,_ = self.sess.run([self.D_solver, self.D_loss,self.clip_D], tf_dict)
 
             # Run generator solver
+            #_, ini_loss_curr = self.sess.run([self.Gini_solver, self.ini_cond_loss], tf_dict)
             _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
 
 
@@ -280,12 +278,11 @@ class WGAN():
 
 
 
-            #DG_loss = D_loss_curr - G_loss_curr
-            D_loss = np.abs(D_loss_curr)
+            #DG_loss = np.abs(D_loss_curr - G_loss_curr)
+            #D_loss = np.abs(D_loss_curr)
 
             d_loss = np.square(D_loss_curr)
             g_loss = np.square(G_loss_curr)
-
             dg_loss = np.sqrt(d_loss+g_loss)
 
             it += 1
@@ -296,6 +293,8 @@ class WGAN():
                 ganLoss_g.append(G_loss_curr)
 
         print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
+        ganLoss_d.append(D_loss_curr)
+        ganLoss_g.append(G_loss_curr)
 
 
 
@@ -367,7 +366,7 @@ class Plot_result():
         plt.show()
 
 
-    def plot_dstr_set(self, gan_samp, org_samp, n_ipts,s0):
+    def plot_dstr_set(self, gan_samp, org_samp, n_ipts,s0,mu,sigma):
 
         font = {'family': 'serif',
                 'color': 'darkred',
@@ -378,15 +377,15 @@ class Plot_result():
         paths = np.array([gan_samp[str(scen)] for scen in range(n_ipts)])
         paths_org = np.array([org_samp[str(scen)] for scen in range(n_ipts)])
 
-        mu = 0
-        sigma = 0.1
+        #mu = 0
+        #sigma = 0.1
         fig = plt.figure(figsize=(8, 8))
         fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
 
         for t in range(1,n_ipts):
 
             path = paths[t, :]
-            mean = s0 * np.exp((mu + sigma ** 2 / 2) * t)
+            mean = s0 * np.exp((mu - sigma ** 2 / 2) * t)
             var = s0 ** 2 * np.exp(2 * mu * t + t * sigma ** 2) * (np.exp(t * sigma ** 2) - 1)
             std = np.sqrt(var)
 
@@ -396,6 +395,7 @@ class Plot_result():
 
             x = np.linspace(xmin, xmax, 10000)
             pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2))/ (x * std * np.sqrt(2 * np.pi)))
+            #pdf = (np.exp(-(np.log(x) - (mu - sigma ** 2 / 2) * t) ** 2 / (2 * t * sigma ** 2)) / (x * std * np.sqrt(2 * np.pi*t)))
 
 
             ax = fig.add_subplot(4, 3, t)
@@ -410,7 +410,40 @@ class Plot_result():
 
         plt.show()
 
-    def plot_2path(self,gbm_paths,model_paths,method):
+    def plot_dstr_set_hist(self, gan_samp, org_samp, n_ipts,s0,mu,sigma):
+
+        font = {'family': 'serif',
+                'color': 'darkred',
+                'weight': 'normal',
+                'size': 16,
+                }
+
+        paths_gan = np.array([gan_samp[str(scen)] for scen in range(n_ipts)])
+        paths_org = np.array([org_samp[str(scen)] for scen in range(n_ipts)])
+
+        fig = plt.figure(figsize=(8, 8))
+        fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
+
+        for t in range(1,n_ipts):
+
+            path_gan = paths_gan[t, :]
+            path_org = paths_org[t, :]
+
+
+
+            ax = fig.add_subplot(4, 3, t)
+            ax.hist(path_org, 20, density=True, label="Geometric Brownian Motion")
+            ax.hist(path_gan, 20, density=True, label="WGAN Sampling")
+
+
+            ax.title.set_text("{}th day".format(str(t)))
+            ax.set(xlabel="x", ylabel="PDF")
+            if self.save:
+                plt.savefig("images/dstr_wgan_hist{}.png".format(str(method)), bbox_inches='tight')
+
+        plt.show()
+
+    def plot_2path(self,gbm_paths,model_paths,method,s0):
 
         fig = plt.figure(figsize=(8, 3))
         #fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
@@ -420,7 +453,7 @@ class Plot_result():
             if k ==0:
                 ax = fig.add_subplot(1, 2, k+1)
             else:
-                ax = fig.add_subplot(1, 2, k + 1,sharey=ax)
+                ax = fig.add_subplot(1, 2, k + 1, sharex=ax,sharey=ax)
 
             for i in range(paths.shape[0]):
                 ax.plot(paths[i, :])
@@ -428,7 +461,9 @@ class Plot_result():
                 ax.title.set_text("Geometric Brownian Motion")
             else:
                 ax.title.set_text("WGAN-{}".format(str(method)))
-            paths = model_paths
+            #paths = model_paths
+            paths = np.hstack((np.array([[s0] for scen in range(model_paths.shape[0])]), model_paths))
+
 
 
 
@@ -446,7 +481,7 @@ if __name__ == "__main__":
     unknown_days = 11
     mu = 0
     sigma = 0.1
-    method = "brownian"
+    method = "uniform"
     converge_crit = 10**(-6)
     print_itr = 1000
     batch_size = 10
@@ -455,10 +490,10 @@ if __name__ == "__main__":
     gbm = Geometric_BM(number_inputs, unknown_days, mu, sigma)
     graph = Plot_result(save)
     paths = gbm.predict_path()
-    s0 = gbm.So
+    s0 = gbm.s0
 
     # GAN-distribution
-    wgan = WGAN(paths, method,batch_size)
+    wgan = WGAN(paths[1:,:], method,batch_size)
     paths_pred, loss_d, loss_g =wgan.train(converge_crit, print_itr)
 
     Sim = Simulation(unknown_days, paths, paths_pred)
@@ -466,8 +501,9 @@ if __name__ == "__main__":
 
     # Plot GAN
     graph.loss_plot(loss_d,loss_g)
-    graph.plot_dstr_set(g_samples, r_samples, unknown_days,s0)
-    graph.plot_2path(paths, paths_pred,method)
+    graph.plot_dstr_set(g_samples, r_samples, unknown_days,s0,mu,sigma)
+    graph.plot_dstr_set_hist(g_samples, r_samples, unknown_days, s0, mu, sigma)
+    graph.plot_2path(paths, paths_pred,method,s0)
 
 
 

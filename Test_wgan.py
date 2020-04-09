@@ -9,16 +9,16 @@ class MyTestCase(unittest.TestCase):
     def setUp(self):
         self.number_inputs = 100
         self.unknown_days = 10
-        mu = 0
-        sigma = 0.1
-        self.method = "brownian"
-        self.iteration = 100
+        self.mu = 0
+        self.sigma = 0.1
+        self.method = "uniform"
+        self.converge_crit = 10**-5
         self.save = False
 
         self.batch_size = 10
-        self.print_itr = self.iteration/10.
+        self.print_itr = 1000
 
-        self.gbm = Geometric_BM(self.number_inputs, self.unknown_days, mu, sigma)
+        self.gbm = Geometric_BM(self.number_inputs, self.unknown_days, self.mu, self.sigma)
         self.graph = Plot_result(self.save)
         self.paths = self.gbm.predict_path()
 
@@ -89,19 +89,28 @@ class MyTestCase(unittest.TestCase):
         r_sam, g_sam = Sim.samples()
 
 
-        self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.So)
+        self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.So,self.mu, self.sigma)
         self.graph.plot_2path(self.paths, pred_paths, self.method)
 
     def test_train_loss(self):
 
-        pred_paths, loss_d, loss_g = self.wgan.train(self.iteration,self.print_itr)
+        pred_paths, loss_d, loss_g = self.wgan.train(self.converge_crit,self.print_itr)
 
         Sim = Simulation(self.unknown_days, self.paths, pred_paths)
 
         r_sam, g_sam = Sim.samples()
 
         self.graph.loss_plot(loss_d,loss_g)
-        self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.So)
-        self.graph.plot_2path(self.paths, pred_paths, self.method)
+        self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.s0, self.mu, self.sigma)
+        self.graph.plot_dstr_set_hist(g_sam, r_sam, self.unknown_days, self.gbm.s0, self.mu, self.sigma)
+        self.graph.plot_2path(self.paths, pred_paths, self.method, self.gbm.s0)
+
+    def test_Gloss(self):
+
+        loss_g = self.sess.run([self.wgan.G_loss], feed_dict={self.wgan.z_tf: self.wgan.sample_Z(self.number_inputs, self.paths.shape[1])})
+
+        print(loss_g)
+
+
 
 
