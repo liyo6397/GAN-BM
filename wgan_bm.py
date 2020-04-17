@@ -6,7 +6,7 @@ set_random_seed(2)
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-from stoch_process import Geometric_BM
+from stoch_process import Geometric_BM, Orn_Uh
 import scipy.stats as stats
 
 
@@ -18,7 +18,7 @@ import scipy.stats as stats
 
 class WGAN():
 
-    def __init__(self, paths, method,batch_size):
+    def __init__(self, paths, method, output_size):
 
         # Input
         self.ini_path = paths[:,0]
@@ -28,29 +28,22 @@ class WGAN():
         self.noise_method = method
 
         # GAN
-        self.num_units = 10
+        self.num_units = paths.shape[1]
         self.paths_tf = tf.placeholder(tf.float64, shape=[None, self.paths.shape[1]])
         self.z_tf = tf.placeholder(tf.float64, shape=[None, self.paths.shape[1]])
-        self.batch_size = batch_size
-        self.n_batch = self.paths.shape[0] % self.batch_size
 
         # G & D
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
                                                      log_device_placement=True))
-        self.G_sample = self.generator(self.z_tf)
+        self.G_sample = self.generator(self.z_tf, paths.shape[1])
+        #self.final_sample = self.generator(self.z_tf, output_units = 20)
         self.D_output_real = self.discriminator(self.paths)
         self.D_output_fake = self.discriminator(self.G_sample)
 
 
-        # Loss function
-        #self.g_samp = tf.zeros(shape=[self.N, self.paths.shape[1]], dtype=tf.float64)
-        #self.g_samp = np.zeros((self.N, self.paths.shape[1]))
-
-        #self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)+self.lip_sum
         self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)
-        #self.ini_cond_loss = tf.reduce_mean(tf.sqrt(tf.square(self.G_sample[:,0]-self.ini_path)))
         self.G_loss = -tf.reduce_mean(self.D_output_fake)
-        #self.D_group_loss, self.G_group_loss = self.group_loss()
+
 
 
         # Optimizing
@@ -89,18 +82,8 @@ class WGAN():
 
         rand_poi = np.random.poisson(0.1,size=[m,n])
 
-    def group_Loss(self):
 
-        for idx in range(unknown_days):
-            Simu = Simulation(idx_elment=idx)
-
-            new_samples = Simu.collect_pts(paths_pred)
-            wgan_samples[str(idx)] = new_samples
-
-            original_samples = Simu.collect_pts(paths)
-            o_samples[str(idx)] = original_samples
-
-    def generator(self, z):
+    def generator(self, z, output_units):
 
         with tf.variable_scope("gen", reuse=tf.AUTO_REUSE):
             hidden = tf.layers.dense(inputs=z, units=self.num_units,
@@ -110,7 +93,7 @@ class WGAN():
             #    hidden = tf.layers.dense(inputs=hidden, units=self.num_units,
             #                             activation=tf.nn.leaky_relu)
 
-            output = tf.layers.dense(inputs=hidden, units=self.paths.shape[1])
+            output = tf.layers.dense(inputs=hidden, units=output_units) # change from path.shape[1]
 
 
             return output
@@ -140,7 +123,6 @@ class WGAN():
 
         # Optimizers
         D_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(-self.D_loss, var_list=disc_vars)
-        #Gini_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.ini_cond_loss, var_list=gen_vars)
         G_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.G_loss, var_list=gen_vars)
 
 
@@ -161,89 +143,6 @@ class WGAN():
                 mini_batches.append(mini_batch)
 
         return mini_batches
-
-    def train_nbatch2(self,itrs,print_itr):
-
-        for it in range(itrs):
-            #paths_batch = self.create_mini_batches(self.paths,self.batch_size)
-            # random sampling
-            gbm = Geometric_BM(self.paths.shape[0], self.unknown_days-1, 0, 0.1)
-            paths_batch = gbm.predict_path()
-
-            tf_dict = {self.paths_tf: paths_batch,
-                       self.z_tf: self.sample_Z(paths_batch.shape[0], paths_batch.shape[1])}
-
-            # Run disciminator solver
-            for it_d in range(5):
-                _, D_loss_curr, _ = self.sess.run([self.D_solver, self.D_loss, self.clip_D], tf_dict)
-
-            # Run generator solver
-            #tf_dict = {self.paths_tf: paths_batch,
-            #               self.z_tf: self.sample_Z(paths_batch.shape[0], paths_batch.shape[1])}
-            _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
-
-            # Print loss
-            if it % print_itr == 0:
-                print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
-
-            if it == itrs-1:
-                samples = self.sess.run(self.G_sample, feed_dict={self.z_tf: self.sample_Z(self.paths.shape[0], self.paths.shape[1])})
-
-
-
-        return samples
-
-
-    def train_nbatch(self,itrs,print_itr):
-
-        dg_loss = 1
-        d_loss = 1
-        it = 1
-
-        while d_loss >= 10**(-7):
-        #for it in range(itrs):
-            #paths_batch = self.create_mini_batches(self.paths,self.batch_size)
-            # random sampling
-            rand_index = np.random.choice(self.paths.shape[0], size=self.batch_size)
-            random_batches = self.paths[rand_index, :]
-            mini_batch_size = int(self.batch_size/10)
-            mini_batches = self.create_mini_batches(random_batches, mini_batch_size)
-
-            for paths_batch in mini_batches:
-                tf_dict = {self.paths_tf: paths_batch,
-                           self.z_tf: self.sample_Z(paths_batch.shape[0], paths_batch.shape[1])}
-
-                # Run disciminator solver
-                for it_d in range(5):
-                    _, D_loss_curr, _ = self.sess.run([self.D_solver, self.D_loss, self.clip_D], tf_dict)
-
-
-                # Run generator solver
-                #tf_dict = {self.paths_tf: paths_batch,
-                #               self.z_tf: self.sample_Z(paths_batch.shape[0], paths_batch.shape[1])}
-                _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
-
-                # Print loss
-
-            if it % print_itr == 0:
-                print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
-
-            #if it == itrs-1:
-                #samples = self.sess.run(self.G_sample, feed_dict={self.z_tf: self.sample_Z(self.paths.shape[0], self.paths.shape[1])})
-                #num_pts = self.batch_size*10
-            samples = self.sess.run(self.G_sample,
-                                            feed_dict={self.z_tf: self.sample_Z(self.paths.shape[0], self.paths.shape[1])})
-            it += 1
-            d_loss = np.square(D_loss_curr)
-            #g_loss = np.square(G_loss_curr)
-
-            #dg_loss = np.sqrt(d_loss + g_loss)
-
-            if it >= 5 * 10 ** 4:
-                break
-
-        return samples
-
 
 
     def train(self, converg_crit,print_itr):
@@ -269,17 +168,8 @@ class WGAN():
                 _, D_loss_curr,_ = self.sess.run([self.D_solver, self.D_loss,self.clip_D], tf_dict)
 
             # Run generator solver
-            #_, ini_loss_curr = self.sess.run([self.Gini_solver, self.ini_cond_loss], tf_dict)
             _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
 
-
-
-            self.g_samp = self.sess.run(self.G_sample, feed_dict={self.z_tf: self.sample_Z(100, self.paths.shape[1])})
-
-
-
-            #DG_loss = np.abs(D_loss_curr - G_loss_curr)
-            #D_loss = np.abs(D_loss_curr)
 
             d_loss = np.square(D_loss_curr)
             g_loss = np.square(G_loss_curr)
@@ -291,6 +181,8 @@ class WGAN():
                 print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
                 ganLoss_d.append(D_loss_curr)
                 ganLoss_g.append(G_loss_curr)
+
+            self.g_samp = self.sess.run(self.G_sample, feed_dict={self.z_tf: self.sample_Z(100, self.paths.shape[1])})
 
         print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
         ganLoss_d.append(D_loss_curr)
@@ -356,14 +248,11 @@ class Plot_result():
         plt.xlabel("Number of 1000 Iterations")
         plt.ylabel("Loss")
         plt.legend()
+        if self.save:
+            plt.savefig("slides/images/loss/loss_wgan_{}".format(str(method)), bbox_inches='tight')
         plt.show()
 
-        plt.plot(np.abs(loss_d), label="Discriminator Loss")
-        plt.plot(np.abs(loss_g), label="Generator Loss")
-        plt.xlabel("Number of 1000 Iterations")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.show()
+
 
 
     def plot_dstr_set(self, gan_samp, org_samp, n_ipts,s0,mu,sigma):
@@ -385,17 +274,24 @@ class Plot_result():
         for t in range(1,n_ipts):
 
             path = paths[t, :]
-            mean = s0 * np.exp((mu - sigma ** 2 / 2) * t)
+            '''mean = s0 * np.exp((mu - sigma ** 2 / 2) * t)
             var = s0 ** 2 * np.exp(2 * mu * t + t * sigma ** 2) * (np.exp(t * sigma ** 2) - 1)
+            std = np.sqrt(var)'''
+
+            mean = np.log(s0) + mu*t
+            var = sigma*np.sqrt(t)
             std = np.sqrt(var)
 
             xmin = stats.lognorm(std, scale=np.exp(mean)).ppf(0.001)
             xmax = stats.lognorm(std, scale=np.exp(mean)).ppf(0.999)
 
+            #xmin = np.min(path)
+            #xmax = np.max(path)
+
 
             x = np.linspace(xmin, xmax, 10000)
-            pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2))/ (x * std * np.sqrt(2 * np.pi)))
-            #pdf = (np.exp(-(np.log(x) - (mu - sigma ** 2 / 2) * t) ** 2 / (2 * t * sigma ** 2)) / (x * std * np.sqrt(2 * np.pi*t)))
+            #pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2))/ (x * std * np.sqrt(2 * np.pi)))
+            pdf = np.exp(-0.5*((np.log(x)-np.log(s0)-mu*t)/(sigma*np.sqrt(t)))**2) / (x * sigma * np.sqrt(2 * np.pi*t))
 
 
             ax = fig.add_subplot(4, 3, t)
@@ -406,7 +302,7 @@ class Plot_result():
             ax.title.set_text("{}th day".format(str(t)))
             ax.set(xlabel="x", ylabel="PDF")
             if self.save:
-                plt.savefig("images/dstr_wgan_{}1000.png".format(str(method)), bbox_inches='tight')
+                plt.savefig("slides/images/distribution_bm/dstr_wgan_{}".format(str(method)), bbox_inches='tight')
 
         plt.show()
 
@@ -438,8 +334,8 @@ class Plot_result():
 
             ax.title.set_text("{}th day".format(str(t)))
             ax.set(xlabel="x", ylabel="PDF")
-            if self.save:
-                plt.savefig("images/dstr_wgan_hist{}.png".format(str(method)), bbox_inches='tight')
+
+
 
         plt.show()
 
@@ -469,7 +365,7 @@ class Plot_result():
 
 
         if self.save:
-            fig.savefig("images/path_wgan_{}1000.png".format(str(method)), bbox_inches='tight')
+            fig.savefig("slides/images/path_bm/path_wgan_{}.png".format(str(method)), bbox_inches='tight')
         plt.show()
 
 
@@ -478,13 +374,13 @@ if __name__ == "__main__":
 
     # BM
     number_inputs = 100
-    unknown_days = 11
+    unknown_days = 10
     mu = 0
     sigma = 0.1
     method = "uniform"
     converge_crit = 10**(-6)
     print_itr = 1000
-    batch_size = 10
+    output_units = 10
     save = False
 
     gbm = Geometric_BM(number_inputs, unknown_days, mu, sigma)
@@ -493,7 +389,7 @@ if __name__ == "__main__":
     s0 = gbm.s0
 
     # GAN-distribution
-    wgan = WGAN(paths[1:,:], method,batch_size)
+    wgan = WGAN(paths[:,1:], method,output_units)
     paths_pred, loss_d, loss_g =wgan.train(converge_crit, print_itr)
 
     Sim = Simulation(unknown_days, paths, paths_pred)

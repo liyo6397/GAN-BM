@@ -1,6 +1,6 @@
 import unittest
 from wgan_bm import WGAN, Simulation, Plot_result
-from stoch_process import Geometric_BM
+from stoch_process import Geometric_BM, Orn_Uh
 import tensorflow as tf
 import numpy as np
 
@@ -12,17 +12,17 @@ class MyTestCase(unittest.TestCase):
         self.mu = 0
         self.sigma = 0.1
         self.method = "uniform"
-        self.converge_crit = 10**-5
+        self.converge_crit = 10**-2
         self.save = False
 
-        self.batch_size = 10
+        self.output_units = 20
         self.print_itr = 1000
 
         self.gbm = Geometric_BM(self.number_inputs, self.unknown_days, self.mu, self.sigma)
         self.graph = Plot_result(self.save)
         self.paths = self.gbm.predict_path()
 
-        self.wgan = WGAN(self.paths, self.method,self.batch_size)
+        self.wgan = WGAN(self.paths, self.method,self.output_units)
         self.sess = self.wgan.sess
 
 
@@ -89,8 +89,8 @@ class MyTestCase(unittest.TestCase):
         r_sam, g_sam = Sim.samples()
 
 
-        self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.So,self.mu, self.sigma)
-        self.graph.plot_2path(self.paths, pred_paths, self.method)
+        self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.s0,self.mu, self.sigma)
+        self.graph.plot_2path(self.paths, pred_paths, self.method, self.gbm.s0)
 
     def test_train_loss(self):
 
@@ -100,7 +100,7 @@ class MyTestCase(unittest.TestCase):
 
         r_sam, g_sam = Sim.samples()
 
-        self.graph.loss_plot(loss_d,loss_g)
+        #self.graph.loss_plot(loss_d,loss_g)
         self.graph.plot_dstr_set(g_sam, r_sam, self.unknown_days, self.gbm.s0, self.mu, self.sigma)
         self.graph.plot_dstr_set_hist(g_sam, r_sam, self.unknown_days, self.gbm.s0, self.mu, self.sigma)
         self.graph.plot_2path(self.paths, pred_paths, self.method, self.gbm.s0)
@@ -110,6 +110,30 @@ class MyTestCase(unittest.TestCase):
         loss_g = self.sess.run([self.wgan.G_loss], feed_dict={self.wgan.z_tf: self.wgan.sample_Z(self.number_inputs, self.paths.shape[1])})
 
         print(loss_g)
+
+
+    def test_output_pts(self):
+
+        #print(np.shape(self.gbm.predict_path()))
+
+        pred_paths, loss_d, loss_g = self.wgan.train(self.converge_crit, self.print_itr)
+
+        final_sample = self.wgan.generator(self.wgan.z_tf, output_units = 20)
+
+        self.g_samp = self.sess.run(final_sample, feed_dict={self.wgan.z_tf: self.wgan.sample_Z(100, self.paths.shape[1])})
+
+        self.graph.plot_2path(self.paths, pred_paths, self.method, self.gbm.s0)
+
+
+
+
+    def test_orn(self):
+
+        theta = 1.1
+        orn_s0 = 0
+        t0 = 0
+        tend = 2
+        orn = Orn_Uh(number_inputs, unknown_days, mu, sigma, theta, orn_s0, t0, tend)
 
 
 
