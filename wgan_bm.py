@@ -18,7 +18,7 @@ import scipy.stats as stats
 
 class WGAN():
 
-    def __init__(self, paths, method, output_size):
+    def __init__(self, paths, method):
 
         # Input
         self.ini_path = paths[:,0]
@@ -77,10 +77,6 @@ class WGAN():
         W_process = np.array([W[str(scen)] for scen in range(1, m + 1)])
 
         return W_process
-
-    def Homo_Poisson(self,m,n):
-
-        rand_poi = np.random.poisson(0.1,size=[m,n])
 
 
     def generator(self, z, output_units):
@@ -237,9 +233,10 @@ class Simulation():
 
 class Plot_result():
 
-    def __init__(self,save):
+    def __init__(self,save, data_type):
 
         self.save = save
+        self.data_type = data_type
 
     def loss_plot(self,loss_d,loss_g):
 
@@ -295,7 +292,7 @@ class Plot_result():
 
 
             ax = fig.add_subplot(4, 3, t)
-            ax.plot(x, pdf, 'k', label="Geometric Brownian Motion")
+            ax.plot(x, pdf, 'k', label=self.data_type)
             ax.hist(path, 20, density=True)
 
 
@@ -328,7 +325,7 @@ class Plot_result():
 
 
             ax = fig.add_subplot(4, 3, t)
-            ax.hist(path_org, 20, density=True, label="Geometric Brownian Motion")
+            ax.hist(path_org, 20, density=True, label=self.data_type)
             ax.hist(path_gan, 20, density=True, label="WGAN Sampling")
 
 
@@ -342,7 +339,6 @@ class Plot_result():
     def plot_2path(self,gbm_paths,model_paths,method,s0):
 
         fig = plt.figure(figsize=(8, 3))
-        #fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
 
         paths = gbm_paths
         for k in range(2):
@@ -354,7 +350,7 @@ class Plot_result():
             for i in range(paths.shape[0]):
                 ax.plot(paths[i, :])
             if k == 0:
-                ax.title.set_text("Geometric Brownian Motion")
+                ax.title.set_text(self.data_type)
             else:
                 ax.title.set_text("WGAN-{}".format(str(method)))
             #paths = model_paths
@@ -377,6 +373,7 @@ if __name__ == "__main__":
     unknown_days = 10
     mu = 0
     sigma = 0.1
+    data_type = "Ornstein-Uhlenbeck process"
     method = "uniform"
     converge_crit = 10**(-6)
     print_itr = 1000
@@ -384,18 +381,18 @@ if __name__ == "__main__":
     save = False
 
     gbm = Geometric_BM(number_inputs, unknown_days, mu, sigma)
-    graph = Plot_result(save)
+    graph = Plot_result(save,data_type)
     paths = gbm.predict_path()
     s0 = gbm.s0
 
     # GAN-distribution
-    wgan = WGAN(paths[:,1:], method,output_units)
+    wgan = WGAN(paths[:,1:], method)
     paths_pred, loss_d, loss_g =wgan.train(converge_crit, print_itr)
 
     Sim = Simulation(unknown_days, paths, paths_pred)
     r_samples, g_samples = Sim.samples()
 
-    # Plot GAN
+    # Plot WGAN
     graph.loss_plot(loss_d,loss_g)
     graph.plot_dstr_set(g_samples, r_samples, unknown_days,s0,mu,sigma)
     graph.plot_dstr_set_hist(g_samples, r_samples, unknown_days, s0, mu, sigma)

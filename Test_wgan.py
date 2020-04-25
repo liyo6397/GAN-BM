@@ -1,11 +1,14 @@
 import unittest
 from wgan_bm import WGAN, Simulation, Plot_result
 from stoch_process import Geometric_BM, Orn_Uh
+from finite_dimensional import joint_distribution
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-class MyTestCase(unittest.TestCase):
+
+class Test_Wgan(unittest.TestCase):
     def setUp(self):
         self.number_inputs = 100
         self.unknown_days = 10
@@ -19,11 +22,11 @@ class MyTestCase(unittest.TestCase):
         self.print_itr = 1000
 
         self.gbm = Geometric_BM(self.number_inputs, self.unknown_days, self.mu, self.sigma)
-        self.graph = Plot_result(self.save)
+
         self.paths = self.gbm.predict_path()
 
-        self.wgan = WGAN(self.paths, self.method,self.output_units)
-        self.sess = self.wgan.sess
+        #self.wgan = WGAN(self.paths, self.method,self.output_units)
+        #self.sess = self.wgan.sess
 
 
     def test_train(self):
@@ -128,12 +131,86 @@ class MyTestCase(unittest.TestCase):
 
 
     def test_orn(self):
-
+        number_inputs = 10
+        unknown_days = 30
+        mu = 0.8
+        sigma = 0.3
         theta = 1.1
-        orn_s0 = 0
+        s0 = 0
         t0 = 0
         tend = 2
-        orn = Orn_Uh(number_inputs, unknown_days, mu, sigma, theta, orn_s0, t0, tend)
+
+        method = "uniform"
+        converge_crit = 10 ** (-4)
+        print_itr = 1000
+        save = False
+        data_type = "Ornstein-Uhlenbeck process"
+
+        orn = Orn_Uh(number_inputs, unknown_days, mu, sigma, theta, s0, t0, tend)
+
+        paths = orn.predict_path()
+        wgan = WGAN(paths[:, 1:], method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+
+        graph = Plot_result(save, data_type)
+
+        graph.plot_2path(paths, paths_pred, method, s0)
+
+class Test_joint_distribution(unittest.TestCase):
+
+
+    def test_coordinates(self):
+
+        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=0, sigma=1)
+        paths = gbm.predict_path()
+
+        Nx = 5
+        Ny = 5
+        fd_distribution = joint_distribution(paths,Nx, Ny)
+
+        x, y = fd_distribution.setup_coord_value()
+
+        print("T: ", fd_distribution.T)
+        print("x :", x)
+        print("y :", y)
+
+    def test_tangent(self):
+
+        gbm = Geometric_BM(number_inputs=10, time_window=5, mu=0, sigma=1)
+        paths = gbm.predict_path()
+
+        Nx = 10
+        Ny = 10
+        fd_distribution = joint_distribution(paths, Nx, Ny)
+
+        tan = fd_distribution.tangent_timezone()
+
+        print(tan)
+
+    def test_y_grid_value(self):
+
+        gbm = Geometric_BM(number_inputs=5, time_window=5, mu=0, sigma=1)
+        paths = gbm.predict_path()
+
+        Nx = 10
+        Ny = 10
+        fd_distribution = joint_distribution(paths, Nx, Ny)
+
+        T_to_s = fd_distribution.y_grid_values_new()
+        plot_tTos = T_to_s.T
+
+        for i in range(paths.shape[0]):
+            plt.title("Geometric Brownian Motion")
+            plt.plot(paths[i, :])
+            plt.plot(plot_tTos[i, :], 'r^')
+            plt.ylabel('Sample values')
+            plt.xlabel('Time')
+
+
+        plt.show()
+
+
+        print(T_to_s[1,:])
 
 
 
