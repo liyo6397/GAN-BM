@@ -6,11 +6,11 @@ import matplotlib.pyplot as plt
 
 class Geometric_BM():
 
-    def __init__(self,number_inputs,time_window,mu,sigma):
+    def __init__(self,number_inputs,time_window,mu,sigma, s0):
 
 
         # Parameter Assignments
-        self.s0 = 1
+        self.s0 = s0
         self.dt = 1  # day   # User input
         self.T = time_window
         self.N_days = self.T / self.dt
@@ -109,12 +109,12 @@ if __name__ == "__main__":
     mu = 0.8
     sigma = 0.3
     theta = 1.1
-    s0 = 0
+    s0 = 1
     t0 = 0
     tend = 2
-    gbm = Geometric_BM(number_inputs, unknown_days,mu,sigma)
-    b,W = gbm.Brownian()
-    S = np.array([W[str(scen)] for scen in range(1, number_inputs + 1)])
+    #gbm = Geometric_BM(number_inputs, unknown_days,mu,sigma,s0)
+    #b,W = gbm.Brownian()
+    #S = np.array([W[str(scen)] for scen in range(1, number_inputs + 1)])
 
 
     orn = Orn_Uh(number_inputs, unknown_days,mu,sigma, theta, s0, t0, tend)

@@ -16,7 +16,7 @@ from stoch_process import Geometric_BM
 
 class GAN():
 
-    def __init__(self,paths, number_inputs,method):
+    def __init__(self,paths, method):
 
         #Input
         self.paths = paths
@@ -120,15 +120,22 @@ class GAN():
 
         return D_solver, G_solver
 
-    def train(self,itrs):
+    def train(self, itrs,print_itr):
+
+        dg_loss = 1
+        D_loss = 1
+        DG_loss = 1
+        ini_loss_curr = 1
+        it = 1
+        ganLoss_d = []
+        ganLoss_g = []
 
         tf_dict = {self.paths_tf: self.paths, self.z_tf: self.sample_Z(self.N,self.paths.shape[1])}
 
         start_time = time.time()
         for it in range(itrs):
-            if it == itrs-1:
-                new_samples = self.sess.run(self.G_sample, tf_dict)
-                #print(new_samples)
+        #while (dg_loss >= converg_crit or (it >= 100000 and dg_loss >= converg_crit * 10 ** (2))):
+
 
             # Run disciminator solver
             _, D_loss_curr = self.sess.run([self.D_solver, self.D_loss], tf_dict)
@@ -136,14 +143,20 @@ class GAN():
             # Run generator solver
             _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
 
-        # Print loss
-            if it % 1000 == 0:
-                #if it % 100 == 0:
-                print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
-                #if it == itrs-1:
-                #    print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
+            d_loss = np.square(D_loss_curr)
+            g_loss = np.square(G_loss_curr)
+            dg_loss = np.sqrt(d_loss + g_loss)
 
-        return new_samples
+        # Print loss
+            if it % print_itr == 0:
+                print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
+            it += 1
+            ganLoss_d.append(D_loss_curr)
+            ganLoss_g.append(G_loss_curr)
+        new_samples = self.sess.run(self.G_sample, tf_dict)
+
+
+        return new_samples, np.array(ganLoss_d), np.array(ganLoss_g)
 
     def predict(self, paths):
 
@@ -429,7 +442,7 @@ if __name__ == "__main__":
 
 
     #GAN-distribution
-    gan = GAN(paths, number_inputs,method)
+    gan = GAN(paths, method)
     gan_samples = {}
     o_samples = {}
     paths_pred = gan.train(iteration)

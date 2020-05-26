@@ -36,18 +36,24 @@ class WGAN():
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
                                                      log_device_placement=True))
         self.G_sample = self.generator(self.z_tf, paths.shape[1])
-        #self.final_sample = self.generator(self.z_tf, output_units = 20)
         self.D_output_real = self.discriminator(self.paths)
         self.D_output_fake = self.discriminator(self.G_sample)
 
 
         self.D_loss = tf.reduce_mean(self.D_output_real) - tf.reduce_mean(self.D_output_fake)
         self.G_loss = -tf.reduce_mean(self.D_output_fake)
+        self.DG_loss = tf.sqrt(tf.square(self.D_loss) + tf.square(self.G_loss))
 
-
+        self.disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("disc")]
+        self.gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("gen")]
+        self.D_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(-self.D_loss, var_list=self.disc_vars)
+        self.G_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.G_loss, var_list=self.gen_vars)
+        self.DG_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.DG_loss)
+        self.clip_D = [var.assign(tf.clip_by_value(var, -0.01, 0.01)) for var in self.disc_vars]
 
         # Optimizing
-        self.D_solver, self.G_solver, self.clip_D = self.optimizer()
+        #self.D_solver, self.G_solver, self.clip_D = self.optimizer()
+
 
         self.sess.run(tf.global_variables_initializer())
 
@@ -109,20 +115,29 @@ class WGAN():
 
             return output
 
-    def optimizer(self):
+    def optimizer_disc(self):
 
         # Select parameters
         disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("disc")]
-        gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("gen")]
 
-        clip_D = [var.assign(tf.clip_by_value(var, -0.01, 0.01)) for var in disc_vars]
+
 
         # Optimizers
         D_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(-self.D_loss, var_list=disc_vars)
+
+
+
+        return disc_vars, D_solver
+
+    def optimizer_gen(self):
+
+        # Select parameters
+        gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("gen")]
         G_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.G_loss, var_list=gen_vars)
 
 
-        return D_solver, G_solver, clip_D #, Gini_solver
+        return gen_vars, G_solver
+
 
     def create_mini_batches(self,data,b_size):
         mini_batches = []
@@ -166,10 +181,13 @@ class WGAN():
             # Run generator solver
             _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
 
+            #d_loss = np.square(D_loss_curr)
+            #g_loss = np.square(G_loss_curr)
+            #dg_loss = np.sqrt(d_loss+g_loss)
 
-            d_loss = np.square(D_loss_curr)
-            g_loss = np.square(G_loss_curr)
-            dg_loss = np.sqrt(d_loss+g_loss)
+            dg_loss, _ = self.sess.run([self.DG_loss, self.DG_solver], tf_dict)
+
+
 
             it += 1
             # Print loss
@@ -233,10 +251,11 @@ class Simulation():
 
 class Plot_result():
 
-    def __init__(self,save, data_type):
+    def __init__(self,save, data_type, method):
 
         self.save = save
         self.data_type = data_type
+        self.method = method
 
     def loss_plot(self,loss_d,loss_g):
 
@@ -246,7 +265,41 @@ class Plot_result():
         plt.ylabel("Loss")
         plt.legend()
         if self.save:
-            plt.savefig("slides/images/loss/loss_wgan_{}".format(str(method)), bbox_inches='tight')
+            plt.savefig("slides/images/loss/loss_wgan_{}".format(str(self.method)), bbox_inches='tight')
+        plt.show()
+
+
+    def plot_dstr_set_orn(self,gan_samp, org_samp, n_ipts,s0,mu,sigma, theta):
+
+        paths = np.array([gan_samp[str(scen)] for scen in range(n_ipts)])
+
+        fig = plt.figure(figsize=(8, 8))
+        fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
+
+        for t in range(1, n_ipts):
+
+            path = paths[t, :]
+            mean = np.log(s0) + mu * t
+            var = sigma * np.sqrt(t)
+            std = np.sqrt(var)
+
+            xmin = stats.lognorm(std, scale=np.exp(mean)).ppf(0.001)
+            xmax = stats.lognorm(std, scale=np.exp(mean)).ppf(0.999)
+
+            x = np.linspace(xmin, xmax, 10000)
+            term_1 = np.sqrt(theta/(1-2*np.exp(-2*theta*t)))
+            term_2 = 1/(sigma*np.sqrt(np.pi))
+            term_3 = -theta/(1-2*np.exp(-2*theta*t))*((x-s0-mu*t)/sigma)**2
+            pdf = term_1*term_2*np.exp(term_3)
+            ax = fig.add_subplot(4, 3, t)
+            ax.plot(x, pdf, 'k', label=self.data_type)
+            ax.hist(path, 20, density=True)
+
+            ax.title.set_text("{}th day".format(str(t)))
+            ax.set(xlabel="x", ylabel="PDF")
+            if self.save:
+                plt.savefig("slides/images/distribution_bm/dstr_wgan_{}".format(str(method)), bbox_inches='tight')
+
         plt.show()
 
 
@@ -254,37 +307,23 @@ class Plot_result():
 
     def plot_dstr_set(self, gan_samp, org_samp, n_ipts,s0,mu,sigma):
 
-        font = {'family': 'serif',
-                'color': 'darkred',
-                'weight': 'normal',
-                'size': 16,
-                }
 
         paths = np.array([gan_samp[str(scen)] for scen in range(n_ipts)])
         paths_org = np.array([org_samp[str(scen)] for scen in range(n_ipts)])
 
-        #mu = 0
-        #sigma = 0.1
+
         fig = plt.figure(figsize=(8, 8))
         fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
 
         for t in range(1,n_ipts):
 
             path = paths[t, :]
-            '''mean = s0 * np.exp((mu - sigma ** 2 / 2) * t)
-            var = s0 ** 2 * np.exp(2 * mu * t + t * sigma ** 2) * (np.exp(t * sigma ** 2) - 1)
-            std = np.sqrt(var)'''
-
             mean = np.log(s0) + mu*t
             var = sigma*np.sqrt(t)
             std = np.sqrt(var)
 
             xmin = stats.lognorm(std, scale=np.exp(mean)).ppf(0.001)
             xmax = stats.lognorm(std, scale=np.exp(mean)).ppf(0.999)
-
-            #xmin = np.min(path)
-            #xmax = np.max(path)
-
 
             x = np.linspace(xmin, xmax, 10000)
             #pdf = (np.exp(-(np.log(x) - mean) ** 2 / (2 * std ** 2))/ (x * std * np.sqrt(2 * np.pi)))
@@ -317,14 +356,14 @@ class Plot_result():
         fig = plt.figure(figsize=(8, 8))
         fig.subplots_adjust(hspace=0.5, wspace=0.4, top=0.95, bottom=0.05)
 
-        for t in range(1,n_ipts):
+        for t in range(1,n_ipts-1):
 
             path_gan = paths_gan[t, :]
             path_org = paths_org[t, :]
 
 
 
-            ax = fig.add_subplot(4, 3, t)
+            ax = fig.add_subplot(3, 3, t)
             ax.hist(path_org, 20, density=True, label=self.data_type)
             ax.hist(path_gan, 20, density=True, label="WGAN Sampling")
 
@@ -357,47 +396,15 @@ class Plot_result():
             paths = np.hstack((np.array([[s0] for scen in range(model_paths.shape[0])]), model_paths))
 
 
-
-
-
         if self.save:
             fig.savefig("slides/images/path_bm/path_wgan_{}.png".format(str(method)), bbox_inches='tight')
         plt.show()
 
+    def fdd_plot(self,X,Y,loss):
 
-
-if __name__ == "__main__":
-
-    # BM
-    number_inputs = 100
-    unknown_days = 10
-    mu = 0
-    sigma = 0.1
-    data_type = "Ornstein-Uhlenbeck process"
-    method = "uniform"
-    converge_crit = 10**(-6)
-    print_itr = 1000
-    output_units = 10
-    save = False
-
-    gbm = Geometric_BM(number_inputs, unknown_days, mu, sigma)
-    graph = Plot_result(save,data_type)
-    paths = gbm.predict_path()
-    s0 = gbm.s0
-
-    # GAN-distribution
-    wgan = WGAN(paths[:,1:], method)
-    paths_pred, loss_d, loss_g =wgan.train(converge_crit, print_itr)
-
-    Sim = Simulation(unknown_days, paths, paths_pred)
-    r_samples, g_samples = Sim.samples()
-
-    # Plot WGAN
-    graph.loss_plot(loss_d,loss_g)
-    graph.plot_dstr_set(g_samples, r_samples, unknown_days,s0,mu,sigma)
-    graph.plot_dstr_set_hist(g_samples, r_samples, unknown_days, s0, mu, sigma)
-    graph.plot_2path(paths, paths_pred,method,s0)
-
+        plt.contour(X, Y, loss)
+        plt.colorbar()
+        plt.show()
 
 
 

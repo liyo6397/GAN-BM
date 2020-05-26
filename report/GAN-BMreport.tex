@@ -10,116 +10,108 @@
 \newtheorem{example}{Example}[section]
 \newtheorem{proposition}{Proposition}[section]
 \newtheorem{lemma}{Lemma}[section]
+\usepackage[ruled,longend]{algorithm2e}
 \usepackage{graphicx}
-\graphicspath{ {../images/} }
+\graphicspath{ {./images/} }
+
+\title{Using Wassersein GAN to approximate stochastic process}
 
 \begin{document}
+	\maketitle
+	\begin{abstract}
+		We proposed the method based on generative adversarial Networks(GANs)
+		to learn the stochastic process such as geometric brownian motion and Ornstein-Uhlenbeck(OU) process.
+	\end{abstract}
 		\section{Introduction}
-		The aim of the paper is to design the framework to learn the target distribution based on random process.
-		\section{Literature Review}
-			\begin{enumerate}
-				\item \textit{Deep Optimal Stopping} \cite{becker} : Using Reinforcement Learning to approximate an optimal stopping time
-			\end{enumerate}
+		Gererative Adversarial Networks(GANs) have achieved great success at generating realistic and sharp looking images and semisupervised learning e.g. stabilizing sequence learning methods for speech and language, 3D modelling and designing cryptographic primitives \cite{abadi} \cite{sarmad} \cite{tevet} \cite{fedus2018maskgan}. 
+		GANs have proven to be a promising alternative to traditional maximum likelihood approaches \cite{huszr2015train}.
+		In this paper, we furthermore design the framework based on GANs to learn the stochastic process.
 		
-		\section{The process of target data}
-		\subsection{Geometric Brownian Motion}
+		In GANs, two models plays minimax game. 
+		A generator samples synthetic data and discriminator distinguishes the data is real or synthetic.
+		Conceivably some of the instability often observed while training GANs is that it is hard to find the Nash equilibrium in the zero-sum game. 
+		This makes it hard to experiment with new variants or use them in new domain \cite{martin_arjovsky} \cite{arora2017gans} \cite{arora}, \cite{grnarova}.
+		A standard analysis due to \cite{goodfellow} shows that given the large number of parameters and samples, the win by generator implies the distribution of GAN sampling is close to target distribution.
+		However, this cannot apply when target data for GANs is stochastic process.
+		If minimizing the loss of generator is our priority, generator cannot capture the path of training process.
+		We also conduct another experiments to let discriminator win the game.
+		However, it occurs the same issue.
+		When our priority is minimizing the loss of discriminator, the result is not stable, 
+		since some experiments stops to train when the loss of discriminator approaches to zero but the loss of generator still large.
+		We conclude that when the discriminator or generator dominate the competition, it cannot learn the process well.
 		
-			%\subsection{Brownian path}
-				The stochastic process $X_t$ is said to follow GBM if it satisfying the following SDE
-				
-				\begin{equation}
-					dX_t = \mu X_tdt + \sigma X_t dW_t 
-				\end{equation}
-				
-				$W$ is the Brownian motion which determine the process from beginning $S_{t=0}$ to $S_{t=T}$.
-				
-				\begin{equation}
-					W_{k} = \sum_{t=1}^{k} b_{t}, \ \ k = 1, \dots, m
-				\end{equation}
-				 where $b$ is the added randomness to the model.
-				 which stores a random number coming from the standard normal distribution $N(0, 1)$.
-			
-			The solution of above SDE has the analytic solution
-			
-			\begin{equation}
-				S_{k} = S_{0} \prod_{i=1}^{k}e^{\left(\mu-\frac{1}{2}\sigma^{2}\right)t+\sigma W(t)}
-				\label{eq:bm_process}
-			\end{equation}
-			
-			
-				
-				
-	
-	\subsection{Ornstein-Uhlenbeck process}
-	The Ornstein-Uhlenbeck process differential equation is given by
-	\begin{equation}
-		dX_t = aX_tdt + \sigma dW_t 
-		\label{eq:ornuh_diff}
-	\end{equation}
-	An additional drift term is sometimes added:
-	\begin{equation}
-	dX_t = \sigma dW_t +a (\mu-x_t)dt
-	\label{eq:ornuh_diff_mean}
-	\end{equation}
-	where $\sigma$ and $a$ is constants and $\{W_t, t \leq 0\}$ is a standard Brownian motion.
-	\begin{equation}
-		X_t = e^{at}X_0 + \sigma \int_{0}^{t}e^{a(s-t)}dW_s
-			\end{equation}
-	
-	To approximate the numerical solution, we use Euler-Maruyama method to estimate $X_t$.
-	
-	Take (\ref{eq:ornuh_diff_mean}) for example. 
-	First, partition the interval $[0,T]$ into $N$ equidistance sunintervals. 
-	Then, recursively solving $X_{n+1}$ by
-	\begin{equation}
-		X_{n+1} = X_{n} + a (\mu-x_t) \bigtriangleup t+ \sigma \bigtriangleup dW_s
-	\end{equation}
-	where $\bigtriangleup W_n$ is obtained by sampling a random number from normal distribution with expected value zero and variance $\bigtriangleup t$.
-	
-	
-	
-	%If the noise data comes from independent data i.e. normal distribution, unique distribution, the discriminator easily discriminate the noise data as fake example.
-	%Thus, the real examples $x$ easily beat the fake examples.
-	%which degrades the quality of the output. 
-	
-	%However, if the noise data is brownian motion, the distribution of GAN is stable. 
-	%Because each element of vector in brownian motion is also dependent, it easily fool GAN to believe the noise data comes from real data instead generated by $G$. 
-	
-	
+		Recently, \cite{arjovsky} \cite{xiao} suggested that using Wassersein GAN(WGAN) in practice reduce instability. 
+		Although our experiments shows that WGAN learns the process well than GAN especially in avoiding mode collapsing, when we let either of discriminator and generator win the game, the model still instability.
+		Therefore, the important open theoretical issue is whether an equilibrium always exist in the this game between generator and discriminator.
+		The corresponding necessary condition is in a two-player game is an equilibrium.
+		This insight allows us to construct the new rule for the generator and discriminator network to approximate equilibrium that is pure. 
+		
+		
+
+		\subsection{Our Contributions}
+		
+		
+		In order to force the game toward the Nash equilibrium, we provide the new criteria for the training. 
+		We transform all of the required quantity into geometry.
+		Fixed the sides to be $10^{-6}$ that connects with the loss of discriminator and generator.
+		The model is trained until the loss of discriminator and generator with the sides can formed a right triangle.
+		The stopping criteria has good property that it force the process approaches the minimum at $P_g = P_r$
+		Moreover, it doesn't require knowledge of the unknown $P_r(x)$ to optimize it.
+		The method only applies on WGAN since
+		GAN stops to converge at some iteration, so the method fail to apply on it. 
+		
+		It is interesting to note that not only the architecture of the model, the types of noise data also influence the quality of generated samples.
+		Our experiments shows that the nosie data for the generator affects the simulation performance of GAN and WGAN style model. 
+		In GANs, the best simulation appear when the noise data is uniform distribution. 
+		However, in WGAN, the best simulation results appear when the noise data is brownian motion.
+		Furthermore, noise data for the generator also affect the computational cost. 
+		When the noise data is uniform distribution, the loss converges faster than other types of distribution of noise data.
+		
+		
+		
 	\section{Model}
 	\subsection{Generative Adversarial Networks (GANs)}
 	
 	During the training, discriminator $D$ and generator $G$ play the following two-player minimax game during the training. 
-	 The discriminator takes the input data from real and fake data and calculate the score individually to discriminate whether a data sample comes from real data or generated by generator. 
-	 The score calcualted by discriminator represents the probability of the input comes from real data.  
+	 The discriminator takes the input data from real and fake data and calculate the score respectively to discriminate whether a data sample comes from real data or generated by generator. 
+	 The activation for the output layer of discriminator is sigmoid function  so that the range of the value is $[0,1]$. 
+	 Therefore, the value can represent the probability of the input comes from real data.  
 	 The generator takes the random noise data $z$ as inout.
 	 It tries to output the data samples from distribution to fool the discriminator.
 	 
-	 
 	The optimizing approach for GAN is based on \cite{goodfellow} which is composed with two loss function.
-	One aim to increase the value of $D(s)$ to let the discriminator believe the data $s$ comes from real data.
-	The other one aims to train generator $G$ to maximize the $D(G(z))$. 
-
+	The output is a sample from the input distribution $P_{g}$ on $\mathbb{R}^d$ which has to be close to target distribution $P_{r}$.
 	In the first inner loop of training, 
+	the goal is to let 
+	\begin{equation}
+		P_r(x) > P_g(x)
+	\end{equation}
+	Then, the GAN thinks the $x$ has higher probability of coming from real data than being a generated sample.
 	it updates the discriminator by ascending its stochastic gradient:
 	\begin{equation}
-		\bigtriangledown_{x_d} \frac{1}{m} \sum_{t=1}^{m} \left[ \log D(x^{\left(t\right)}) + \log \left(1-D\left(G\left(z^{(t)}\right)\right)\right)\right]
+		\bigtriangledown_{x} \frac{1}{m} \sum_{t=1}^{m} \left[ \log D(x^{\left(t\right)}) + \log \left(1-D\left(G\left(z^{(t)}\right)\right)\right)\right]
 	\end{equation}
+	where $x$ represents the variables for discriminator and $t$ indicates the time for each vector and $z^{(t)}$ is noise sample.
 	
-	After finishing the first inner loop of training, it updates the generator by descending its stochastic gradient with only one step:
+	After finishing the first inner loop of training, the next goal for the second training is 
 	\begin{equation}
-		\bigtriangledown_{x_g} \frac{1}{m} \sum_{t=1}^{m} \log \left(1-D\left(G\left(z^{(t)}\right)\right)\right)
-		\label{fig:loss_gan}
+	P_r(x) < P_g(x)
 	\end{equation}
-	where $x_d$ and $x_g$ represents the variables for discriminator and generator, $t$ indicates the time for each vector and $z^{(t)}$ is noise sample.
+	Then, the GAN thinks the $x$ has lower probability of coming from real data than being a generated sample.
+	It updates the generator by descending its stochastic gradient with only one step:
+	\begin{equation}
+		\bigtriangledown_{z} \frac{1}{m} \sum_{t=1}^{m} \log \left(1-D\left(G\left(z^{(t)}\right)\right)\right)
+		\label{eq:loss_gan}
+	\end{equation}
+	where $z$ represents the variables for generator.
 	As the value of $D(G(z))$ increase, discriminator evaluate the output of $G$ is real data. 
 	
-	\subsubsection{Noise data}
-	Generator  takes the random noise data as input data. 
-	Then, it captures the distribution of real examples to imitate the data sample from real data. 
-	We found out that the initial distribution of noise data for generator influence the performance of GAN. 
+	The drawback of GAN is that the training is unstable. 
+	When some of the generated vectors could maximize the value of discriminator $D(G(z))$, generator will keep generated the vector.
+	Then, the specific vectors gradually  dominate the entire sampling.
+	Therefore, the generated sampling occurs the mode collapse.
+	From Figure \ref{fig:path_gan}, it obvious that some paths appear in the sampling repeatedly.
 	
-	The results of the GAN's output distribution are shown in Figure \ref{fig:dstr_bm} and \ref{fig:dstr_nm}. The path simulation is show in Figure \ref{fig:path_gan}. The detail of procedure for experiment is in section 3. 
 	
 	\subsection{Wassersein GAN}
 	The framework of Wassersein-GAN(WGAN) is provided by \cite{arjovsky}. 
@@ -127,151 +119,356 @@
 	The mode is trained to minimize the Earth-Mover(EM) distance between real distribution and model distribution.
 	The EM distance between distribution of two point processes is:
 	\begin{equation}
-		W(\mathbb{P}_r, \mathbb{P}_g) = \inf_{\gamma \in \prod(\mathbb{P}_r, \mathbb{P}_g)} \mathbb{E}_{(x,y)\sim \gamma}\left[||x-y||\right]
+		W(\mathbb{P}_r, \mathbb{P}_g) = \sup_{||f||_{L} \leq 1} E_{x \sim P_{r}}[f(x)] - \sup_{||f||_{L} \leq 1} E_{x \sim P_{g}}[f(x)]
 		\label{eq:w_distance}
 	\end{equation}
+	\cite{arjovsky} proved the theorem that if the function is locally Lipschitz continuous, then $W(\mathbb{P}_r, \mathbb{P}_g)$ is continuous everywhere and almost differentiable everywhere. 
+	If $W(\mathbb{P}_r, \mathbb{P}_g)$ is continuous and differentiable, then as the parameter $\theta_g \rightarrow \theta_r$ the distribution $P_g \rightarrow P_r$.
+	The fact is that Wasserstein is differentiable almost everywhere, so the more we train the discriminator the more reliable gradient of the Wasserstein we could get.
 	
-	To satisfy the distance equation (\ref{eq:w_distance}), the loss equation for calculating gradient descent of discriminator becomes
+	To satisfy the distance equation (\ref{eq:w_distance}), the loss equation for calculating gradient descent of discriminator is similar to (\ref{eq:loss_gan}) 
 	\begin{equation}
 	\bigtriangledown_{\theta_d} \frac{1}{m}\left[\sum_{i=1}^{m}D(G(z)) - \sum_{i=1}^{m}D(x) \right]
+	\label{eq:loss_wgan}
+	\end{equation}
+	However, we are not look for the $P_r = P_g$, so the output value does not have to be transformed by log.
+	Since WGAN aim to minimize (\ref{eq:w_distance}), so (\ref{eq:loss_wgan}) is optimized the parameters to let the expected value of $D(G(z))$ and $D(x)$ equivalent.
+	Because the distance is continuous and differentiable, it can can be trained until optimally. 
+	From Figure \ref{fig:path_wgan_bm} and \ref{fig:path_wgan_ou}, it shows that it improves the mode collapse problem. 
+	
+	\subsubsection{Noise data}
+	The input for training generator is called noise data. 
+	We investigate three types of noise data: uniform distribution, normal distribution and brownian motion. 
+	Generator aim to capture the distribution of real examples to imitate the data sample from real data. 
+	If generator win the game, GAN evaluate the generated samples come real data.
+	Therefore, in each iteration, the parameters is optimized so that the generated samples can foolish the discriminator.
+	We found out that the initial distribution of noise data for generator influence the performance of GAN. 
+	
+	Given the same condition for other parameters In GAN. 
+	If the noise data is uniform distribution, its generated sampling is most similar to real data than normal distribution and brownian motion.
+	However, given the same condition for other parameters In WGAN, when the noise data is brownian motion, the generated sampling is mot similar to real data. 
+	The detail of the experiment and results will described in Sec. 4.
+
+	
+	\subsection{The process of target data}
+	
+	To verify our model can simulate stochastic process, we select geometric brownian motion and Ornstein-Uhlenbeck(OU) process to be the stochastic process for our model.
+	
+	\subsubsection{Geometric Brownian Motion}
+	
+	%\subsection{Brownian path}
+	The stochastic process $X_t$ is said to follow GBM if it satisfying the following SDE
+	
+	\begin{equation}
+	dX_t = \mu X_tdt + \sigma X_t dW_t 
 	\end{equation}
 	
-	Since the distance is continuous and differentiable, it can can be trained until optimally. 
+	$W$ is the Brownian motion which determine the process from beginning $S_{t=0}$ to $S_{t=T}$.
+	
+	\begin{equation}
+	W_{k} = \sum_{t=1}^{k} b_{t}, \ \ k = 1, \dots, m
+	\end{equation}
+	where $b$ is the added randomness to the model.
+	which stores a random number coming from the standard normal distribution $N(0, 1)$.
+	
+	At fixed time t, geometric brownian motion $S_{0}exp(\mu t + \sigma W(t))$ has a lognormal distribution with mean $\ln(S_{0})+\mu t$ and standard deviation $\sigma \sqrt{t}$
+	\begin{equation}
+	f_{t}(x) = \frac{1}{\sqrt{2 \pi t}\sigma x}\exp \left(-\frac{1}{2}\left[\frac{\ln(x)-\ln(S_{0})-\mu t}{\sigma \sqrt{t}}\right]^{2}\right)
+	\label{eq: day_lognormal}
+	\end{equation}
+	
+	The solution of above SDE has the analytic solution
+	
+	\begin{equation}
+	S_{k} = S_{0} \prod_{i=1}^{k}e^{\left(\mu-\frac{1}{2}\sigma^{2}\right)t+\sigma W(t)}
+	\label{eq:bm_process}
+	\end{equation}
+	
+	\subsubsection{Ornstein-Uhlenbeck process}
+	The Ornstein-Uhlenbeck process differential equation is given by
+	\begin{equation}
+	dX_t = aX_tdt + \sigma dW_t 
+	\label{eq:ornuh_diff}
+	\end{equation}
+	An additional drift term is sometimes added:
+	\begin{equation}
+	dX_t = \sigma dW_t +a (\mu-x_t)dt
+	\label{eq:ornuh_diff_mean}
+	\end{equation}
+	where $\sigma$ and $a$ is constants and $\{W_t, t \leq 0\}$ is a standard Brownian motion.
+	
+	The solution in terms of integral is 
+	\begin{equation}
+	X_t = e^{\theta t}X_0 + \mu(1-e^{ \theta t}) +\sigma \int_{0}^{t}e^{ \theta(s-t)}dW_s
+	\end{equation}
+	
+	\section{Existence of Nash Equilibrium}
+	
+	 The reason why GANs-style network are difficult to train is that both the generator model and the discriminator model are trained simultaneously in a zero-sum game.
+	 When we discuss the zero-sum game, we use the WGAN terminology, relating the min player $P_{1}$ as the generator and the max player $P_{2}$ as the discriminator.
+	 The game object for WGAN is 
+	 \begin{equation}
+	 \min_{u}\max_{v} M(u,v) =  \mathbb{E}_{x \sim \mathbb{P}_{real}}[D(x)] -\mathbb{E}_{x \sim \mathbb{P}_{z}}[D(G_{u}(z))]
+	 \label{eq:wgan_dis}
+	 \end{equation}
+	 where Player $P_{1}$ and $P_{2}$ aim to select a sequence of strategies $u$ and $v$ respectively to maximize its profit.
+	 
+	 
+	 
+	 
+	 
+	 \subsection{New criteria for stopping condition}
+	A Nash equilibrium suppose to be a point such that the loss of discriminator and generator is at the minimum \cite{arora}.
+	However, gradient descent fails to converge since as we reduce the loss of discriminator, the loss of generator increase and vice versa. 
+	The competition can be illustrated by Figure \ref{fig:loss_gan} and \ref{fig:loss_wgan}. 
+	It  is obvious that the convergence of generator is not stable.  
+	
+	Therefore, in order to force the loss of generator and discriminator achieve minimum, the new convergence criteria at the main loop is designed as:
+	\begin{equation}
+	|| D_{w}(x)^{2} + G_{\theta}(z)^{2}|| \leq 10^{-6}
+	\label{eq: loss_fun}
+	\end{equation}
+	(\ref{eq: loss_fun}) can be explained in geometrically.
+	Fixed the sides to be $10^{-6}$ that connects with the loss of discriminator and generator.
+	The model is trained until the loss of discriminator and generator with the sides can formed a right triangle.
+	In case the criteria does not meet, if the number of iteration is over $40000$, it allows to leave the loop if the (\ref{eq: loss_fun}) is less than $10^{-5}$.
+	Since the randomness of the intialization of parameters in model also affect the number of iterations requires to converge. 
+	The new criteria also guarantee the model can be trained until it both the loss of discriminator and generator converge.
+	The procedure is described in Algorithm \ref{alg:algorithm_cric}.
+	
+	\begin{algorithm}
+		\textbf{Input:} $x$, The geometric brownian motion paths. $z$, noise data. $D$, discriminator, $G$, generator, $\ell$, loss function, $m$, number of training data, $\theta_0$, initial critic parameters, $w_0$, initial generator parameters.
+		
+		\While {$||\ell(D)^2+\ell(G)^2|| > \varepsilon$}
+		{
+			
+			\For {$i=0, \dots, N$} 
+			{
+				\For {$j=0, \dots, n_{\text{critic}}$} 
+				{
+					$D_w \leftarrow \bigtriangledown_{w}\frac{1}{M}[\sum_{k=1}^{M}D_{w}(x_{k}^{(i)})-\sum_{k=1}^{M}G(z^{(i)})]$ \\
+					$w \leftarrow + \alpha*RMSProp(w,D_w)$ \\
+					$w \leftarrow \text{clip}(w,-c,c)$
+				}
+				$G_\theta \leftarrow \bigtriangledown_{\theta}\frac{1}{M}[\sum_{k=1}^{M}D_{\theta}(z_{k}^{(i)})]$
+				$\theta \leftarrow + \alpha*\text{RMSProp}(\theta,D_\theta)$ 
+			}
+		}
+		\caption{WGAN for stochastic process. The default values $\alpha = 0.00005, c=0.01, n_{\text{critic}}=5$}
+		\label{alg:algorithm_cric}
+	\end{algorithm} 
+	
+	Many papers suggested to use minibatch sampling to train the GAN. 
+	However, In our experiment, if it trains every batch for the whole samples, the complexity rise to $O(n^3)$ and the result occurred the mode collapse. 
+	Therefore, we decide to train the entire data for one iteration.
+	
+
 	
 	
 	
+	
+	
+	
+
+	
+	\begin{figure}[h]
+		\begin{subfigure}[b]{0.5\textwidth}
+			\includegraphics[width=\textwidth]{loss/loss_gan_bm_brownian.png}
+			\caption{The loss of discriminator and generator for every 1000 iteration based on the new stopping rule.}
+			\label{fig:loss_gan}
+		\end{subfigure}
+		\begin{subfigure}[b]{0.45\textwidth}
+			\includegraphics[width=\textwidth]{loss/loss_wgan_bm_brownian.png}
+			\caption{The loss of discriminator and generator for every 1000 iteration based on the new stopping rule.}
+			\label{fig:loss_wgan}
+		\end{subfigure}
+	\end{figure}
+
+		
 	\section{Empirical results}
 	\subsection{The simulation of Geometric Brownian Motion by GAN}
 	
-	Given the real data $\{ s(i)\in A \}, i = 1, \dots, 10\}$ with intial  value $s(0)=1$ for all $A \subset \mathbb{R}^{10}$.
-	The real data is followed by geometric Brownian motion which is generated by following (\ref{eq:bm_process}).
-	 We implemented three experiments to investigate the effect of noise data for the model distribution.
-	The first and second experiment takes the independent process as noise data and third experiment take dependent process.
-	Then, we estimated the probability of the each dimensional data under generator’s distribution by fitting lognormal distribution to the samples generated with $G$. 
+	Given the real data $\{ s(i)\in A \}, i = 1, \dots, 10\}$ with intial value $[-1,1]$ for all $A \subset \mathbb{R}^{10}$.
+	The real data is generated by following (\ref{eq:bm_process}).
+	We use uniform distribution, normal distribution and brownian motion to be the candidate of noise distribution. 
+	The reason we choose these three distribution is that since the geometric brownian motion is dependent process, we assume the dependent process can fool the discriminator easily.
+	Therefore, we use uniform and normal distribution to be the independent process group and brownian motion to be the dependent group.
+	Then, we can investigate the GAN's performance under different types of noise data.
 	
 	
-	In the first experiment, the generator nets used uniform distribution as input to represented independent process.
-	Results are reported in Figure \ref{fig:dstr_un}. 
-	In the second experiment, the generator nets used normal distribution as input to represented independent process.
-	Results are reported in Figure \ref{fig:dstr_nm}. 
-	In Figure \ref{fig:dstr_un} and \ref{fig:dstr_nm}, we compared the real distribution with model distribution for each dimension after training. 
-	We observe that the model distribution does not match with real distribution in some dimension. 
-	
-	To compare real and model distribution statistically, we implemented two-sample Anderson–Darling test the hypothesis that two samples are drawn from identical distribution in both experiment.
-	First, we combined data set $Z$ and ordered it ascending.
-	Then, the two-sample Anderson-Darling test statistic is calculated by
-	
-	\begin{equation}
-	AD = \frac{1}{mn}\sum_{i=1}^{n+m}\frac{(N_iZ_{(n+m)}-ni)^2}{iZ_{n+m-i}}
-	\end{equation}
-	
-	where $n$ and $m$ is the number of observations in two samples respectively and $N_i$ represents the number of observations in $z_n$ that are equal to or smaller
-	than the ith observation in $Z_{(n+m)}$. 
-	
-	The AD value is over 100 which is larger than the correspondent critical value.  
-	Hence, the null hypothesis that two samples come from same distribution is rejected. 
-	Therefore, we conclude that the the model distribution does not have the same distribution of geometric brownian motion.
-	
-	In the third experiment, 
-	since the Geometric Brownian Motion is dependent, we assume the discriminator is easily fooled by another dependent process.
-	Thus, we choose Brownian Motion to be the input of generator to see whether it can improve the simulation ability.
-
-	Results are reported in Figure \ref{fig:dstr_bm}. 
-	The improvement is not significantly.
-	The AD values is also over 100, so we reject the hypothesis that two samples come from same distribution in the experiment. 
-	
-	\subsubsection{Simulation Results}
-	
-	Figure \ref{fig:path_gan} plots path simulation.
-	It is easily observe from figure that it occurs model collapse in GAN in two experiments especially in dependent process. 
-	Some of paths dominate the generative sampling while training.
-	The generator was be pushed towards producing samples that come from that specific mode, ignoring the other classes most of time. 
-	Moreover, if the model distribution is close to the real distribution in some specific dimension, the mode collapse have larger impact on those dimension.
-	
-
-	\subsection{The simulation of Geometric Brownian Motion by WGAN}
-	
-	Given the real data $\{ s(i)\in A \}, i = 1, \dots, 10\}$ with intial  value $s(0)=1$ for all $A \subset \mathbb{R}^{10}$.
-	The setting of noise data is same us the GAN experiment. 
-	The real data is followed by geometric Brownian motion which is generated by following (\ref{eq:bm_process}).
-	We implemented three experiments to investigate the effect of noise data for the model distribution.
-	The first and second experiment takes the independent process as noise data and the third experiment take dependent process.
-	
-	Results are reported in Figure \ref{fig:dstr_nm}. 
-	The problem of mode collapse is improved when the noise data is based on dependent process.
-	Comparing the two cases which belongs to dependent process, if the noise data generated from uniform distribution, the model distribution and simulating result is better than normal distribution. 
-	
-	
-	
-	\subsubsection{Simulation Results}
-	
-	Figure \ref{fig:path_gan} plots path simulation.
-	It is easily observe from figure that it occurs model collapse in GAN in two experiments especially in dependent process. 
-	Some of paths dominate the generative sampling while training.
-	Compared to the simulation generated by GAN, the mode collapse did not appear obviously. 
-	However, it still fail to capture the variance over the time steps.
-	
-	\section{Conclusion}
-	
-	When the generator in traditional GAN tries to learn the multidimensional random process, it tends to output specific paths to reinforce model distribution match with real distribution. 
-	
-	
-
-	
-	
-
-	
-	
-	
-	
-	\bibliographystyle{unsrt}
-	\bibliography{gan-BM}
-	\cleardoublepage
-	\appendix
-	
-	\section{Figures: GAN}
-	
+	We compared the real distribution with model distribution for each dimension after training. 
+	When the noise data is uniform distribution, the probability distribution is most close to target distribution, so we use uniform distribution to illustrate the comparison of model distribution and target distribution in each dimension. 
+	The results of output distribution are shown in Figure \ref{fig:dstr_gan_uniform}.
 	
 	
 	\begin{figure}[h]
-		\includegraphics[width=0.9\textwidth]{dstr_gan_uniform.png}
-		\caption{Distribution in specific day with uniform distribution as the input for generator. The histogram is the distribution of sampling generated from generator. The black line is the distribution for the real data in each dimension.}
+		\centering
+		\includegraphics[width=0.6\textwidth]{distribution_bm/dstr_gan_uniform.png}
+		\caption{Probability distribution of GAN sampling and theoritical distribution in each dimension.}
 		\label{fig:dstr_gan_uniform}
 	\end{figure}
 	
-	\begin{figure}[h]
-		\includegraphics[width=0.9\textwidth]{dstr_gan_normal.png}
-		\caption{Distribution in specific day with normal distribution as the input for generator. The histogram is the distribution of sampling generated from generator. The black line is the distribution for the real data in each dimension.}
-		\label{fig:dstr_gan_normal}
-	\end{figure}
-	
-	\begin{figure} [h]
-		\includegraphics[width=0.9\textwidth]{dstr_gan_bm.png}
-		\caption{Distribution in specific day with Brownian motion as the input for generator. The histogram is the distribution of sampling generated from generator. The black line is the distribution for real data in each dimension.}
-		\label{fig:dstr_gan_brownian}
-	\end{figure}
-	
+		
+	The path simulation for three experiment is shown in Figure \ref{fig:path_gan}. 
+	The model collapse exisit GAN in three experiment which means that some of paths dominate the generative sampling.
+	The generator kept producing samples that come from that specific mode and  ignoring the other classes most of time. 
+	Moreover, if the model distribution is close to the real distribution in some specific dimensions, the mode collapse have larger impact on those dimension.
 	
 	\begin{figure}[h]
-		\begin{subfigure}[b]{0.5\textwidth}
-			\includegraphics[width=\textwidth]{path_gbm.png}
-			\caption{Geometric Brownian Motion}
+		\centering
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_bm/path_gan_uniform.png}
+			\caption{Noise Data for GAN is based on uniform distribution.}
 		\end{subfigure}
-		\begin{subfigure}[b]{0.5\textwidth}
-			\includegraphics[width=\textwidth]{path_gan_uniform.png}
-			\caption{Independent noise data: Uniform distribution}
+		
+			\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_bm/path_gan_normal.png}
+			\caption{Noise Data for GAN is based on normal distribution.}
 		\end{subfigure}
-		\begin{subfigure}[b]{0.5\textwidth}
-			\includegraphics[width=\textwidth]{path_gan_nm.png}
-			\caption{Independent noise data: Normal distribution}
+
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_bm/path_gan_brownian.png}
+			\caption{Noise Data for GAN is based on brownian distribution.}
 		\end{subfigure}
-		\begin{subfigure}[b]{0.5\textwidth}
-			\includegraphics[width=\textwidth]{path_gan_bm.png}
-			\caption{Dependent noise data: Brownian Motion}
-		\end{subfigure}
-		\caption{Path Simulation. It is easily to observe that there is model collapse while training GAN.}
+	
+	
+		\caption{Simulation results of GAN}
 		\label{fig:path_gan}
 	\end{figure}
 
+	\subsection{Finite Dimension Distribution}
+	
+	If the two process have the same distribution, they have same finite-dimensional distribution.
+	Therefore, in order to check whether the process generated by model is the same stochastic process as the training data, we compute the finite dimension distribution for two process.
+	Finite-dimensional distribution are the joint distribution of $S_{t_{1}}, \dots, S_{t_{n}}, n \in \mathbb{N}$
+	In geometric brownian motion, we transformed the joint density of geometric Brownian motion $S(t_{1}), \dots, S(t_{n})$ in terms of independent increment events
+	
+	{\small 	\[\{ S(t_{1}) = x_1, S(t_{2}) - S(t_{1}) = x_{2} -x_{1}, \dots, S(t_{n}) - S(t_{n-1})  = x_n - x_{n-1} \}\]}
+	
+	yielding the joint density of $S(t_{1}), \dots, S(t_{n})$ as
+	
+	\begin{equation}
+	f(x_1, \dots, x_n) = f_{t_{1}}(x_1)  f_{t_{2}}(x_{2} -x_{1})\dots f_{t_{2}}(x_{n} -x_{n-1})
+	\end{equation}
+	where $f_{t}$ is (\ref{eq: day_lognormal}).
+	
+
+	\subsubsection{The simulation of Geometric Brownian Motion by WGAN} \label{sec:exp_gbm_wgan}
+	
+	Given the real data $\{ s(i)\in A \}, i = 1, \dots, 10\}$ with intial  value $s(0)=1$ for all $A \subset \mathbb{R}^{10}$.
+	The real data is followed by geometric Brownian motion which is generated by following (\ref{eq:bm_process}).
+	The setting of noise data is same us the GAN experiment. 
+	
+	Compared with GAN, each dimension of probability distribution of the WGAN sampling is close to the dimension of theoretical probability. 
+	When the noise data is brownian motion, the model distribution is closet to target distribution, so we use brownian motion to illustrate its ability to learn target distribution.
+	The probability distribution result is presented in Figure \ref{fig:dstr_wgan_brownian}.
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.6\textwidth]{distribution_bm/dstr_wgan_brownian.png}
+		\caption{Probability distribution of WGAN sampling and theoritical distribution in each dimension.}
+		\label{fig:dstr_wgan_brownian}
+	\end{figure}
+	
+	
+	
+	
+	The simulation results are shown in Figure \ref{fig:path_wgan_bm}. 
+	The generated sampling in three experiment looks more close to the real paths than the sampling created by GAN.
+	Although the best result appear when the noise data follow the brownian process, if the noise data is uniform distribution, it converges fastest. 
+	
+	\begin{figure}[h]
+		\centering
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_bm/path_wgan_uniform.png}
+			\caption{Noise Data for WGAN is based on uniform distribution.}
+		\end{subfigure}
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_bm/path_wgan_brownian.png}
+			\caption{Noise Data for WGAN is based on brownian distribution.}
+		\end{subfigure}
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_bm/path_wgan_normal.png}
+			\caption{Noise Data for WGAN is based on normal distribution.}
+		\end{subfigure}
+		\caption{Simulating geometric brownian motion by WGAN}
+		\label{fig:path_wgan_bm}
+	\end{figure}
+	
+	Furthermore, after using small dataset to train WGAN, the WGAN can simulate the larger dataset well.
+	For example, we used 100 geometric Brownian motion for real and noise data. Then, using the trained model to generate 1000 data points for simulating geometric Brownian motion.
+	From Figure \ref{fig:path_dgloss_Bigsample}, the larger output data follows the patter of real data.
+	
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.6\textwidth]{loss_fun/path_dgloss_Bigsample.png}
+		\caption{We using smaller data for training. Then, applying the trained WGAN model to simulate larger dataset.}
+		\label{fig:path_dgloss_Bigsample}
+	\end{figure}
+	
+	
+
+	
+	
+
+	\subsection{The simulation of Ornstein-Uhlenbeck process by WGAN}
+	
+	In this experiment, we use another stochastic process: OU process to be the target data for WGAN.
+	The setting of noise data is same as previous experiments.
+	The dimension in OU process is specified as time interval from $t=0$ to $t=2$. 
+	The simulation results of OU process are shown in Figure \ref{fig:path_wgan_ou}. 
+	
+	
+	\begin{figure}[h]
+		\centering
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_orn/path_wgan_uniform.png}
+			\caption{Noise Data for WGAN is based on uniform distribution.}
+		\end{subfigure}
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_orn/path_wgan_brownian.png}
+			\caption{Noise Data for WGAN is based on brownian distribution.}
+		\end{subfigure}
+		\begin{subfigure}[b]{0.6\textwidth}
+			\includegraphics[width=\textwidth]{path_orn/path_wgan_normal.png}
+			\caption{Noise Data for WGAN is based on normal distribution.}
+		\end{subfigure}
+		\caption{Simulating Ornestein-Uhlenbeck process by WGAN}
+		\label{fig:path_wgan_ou}
+	\end{figure}
+	
+	
+	
+	\section{Conclusion}
+	
+	We presented a novel approach for WGAN to learn dynamic process.
+	The problem this paper concerned with is unsupervised learning.
+	It does not require prior knowledge about the underlying true process.
+	The paper investigated the difficulties to find the equilibrium in zero-sum game. 
+	Furthermore, the paper proposed the new criteria that it force WGAN to be trained until it approach $\epsilon$-Nash Equilibrium. 
+	We also observe the noise data for generator influence the performance of WGAN. 
+	When the noise data is brownian motion, WGAN generated samples look more realistic to the target paths than the noise data based on uniform distribution and normal distribution.
+	
+	For the future work, we should solve the issues we observe. 
+	First, we will propose a new approach that guarantee both the discriminator and generator can approach the Nash equilibrium in the training phase. 
+	Second, providing the mathematical proof to analyze the Nash-Equilibrium in WGAN when the real data is stochastic process.
+	Third, investigating the relationship between noise data and WGAN to explain why some types of noise data can improve to the performance of WGAN. 
+	 
+
+	\cleardoublepage
+	\bibliographystyle{unsrt}
+	\bibliography{gan-BM}
+	
+	
+	
+	
+
+	
+	
+	
+
+	
+	
 
 \end{document}

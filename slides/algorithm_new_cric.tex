@@ -1,0 +1,25 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage[ruled,longend]{algorithm2e}
+\begin{document}
+\begin{algorithm}
+	\textbf{Input:} $x$, The geometric brownian motion paths. $z$, noise data. $D$, discriminator, $G$, generator, $\ell$, loss function, $m$, number of training data, $\theta_0$, initial critic parameters, $w_0$, initial generator parameters.
+	
+  \While {$||\ell(D)^2+\ell(G)^2|| > \varepsilon$}
+  {
+  	
+  	\For {$i=0, \dots, N$} 
+  	{
+    	\For {$j=0, \dots, n_{\text{critic}}$} 
+    	{
+    		$D_w \leftarrow \bigtriangledown_{w}\frac{1}{M}[\sum_{k=1}^{M}D_{w}(x_{k}^{(i)})-\sum_{k=1}^{M}G(z^{(i)})]$ \\
+    		$w \leftarrow + \alpha*RMSProp(w,D_w)$ \\
+    		$w \leftarrow \text{clip}(w,-c,c)$
+    	}
+    	$G_\theta \leftarrow \bigtriangledown_{\theta}\frac{1}{M}[\sum_{k=1}^{M}D_{\theta}(z_{k}^{(i)})]$
+    	$\theta \leftarrow + \alpha*\text{RMSProp}(\theta,D_\theta)$ 
+    }
+  }
+  \caption{WGAN for stochastic process. The default values $\alpha = 0.00005, c=0.01, n_{\text{critic}}=5$}
+\end{algorithm}
+\end{document}

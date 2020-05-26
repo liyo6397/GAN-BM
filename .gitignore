@@ -1,3 +1,4 @@
+.gitignore
 # python directory
 venv/*
 __pycache__/*
@@ -13,7 +14,24 @@ report/*.blg
 report/*.log
 report/*.synctex.gz
 report/*.toc
+report/images/*
+gan_slide*
+
+#slide
+slides/*.aux
+slides/*.bbl
+slides/*.blg
+slides/*.log
+slides/*.synctex.gz
+slides/*.toc
+slides/*.out
+slides/*.nav
+slides/*.snm
+
 
 #OS generated files
 .DS_Store
 .idea*
+
+runge_k.py
+RungeK.py
