@@ -44,7 +44,11 @@ class GAN():
         #self.D_fake = tf.reduce_mean(self.D_output_fake)
 
         #Optimizing
-        self.D_solver, self.G_solver = self.optimizer()
+        #self.D_solver, self.G_solver = self.optimizer()
+        self.disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("disc")]
+        self.gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("gen")]
+        self.D_solver = tf.train.AdamOptimizer().minimize(self.D_loss, var_list=self.disc_vars)
+        self.G_solver = tf.train.AdamOptimizer().minimize(self.G_loss, var_list=self.gen_vars)
 
         self.sess.run(tf.global_variables_initializer())
 

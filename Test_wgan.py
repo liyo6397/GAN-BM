@@ -1,10 +1,11 @@
 import unittest
-from wgan_bm import WGAN, Simulation, Plot_result
+from wgan_bm import WGAN
 from stoch_process import Geometric_BM, Orn_Uh
 from finite_dimensional import joint_distribution
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+from data_collect import Simulation
 
 
 
@@ -252,13 +253,14 @@ class Test_joint_distribution(unittest.TestCase):
 
         mu = 0
         sigma = 0.1
+        s0 = 1
 
         gbm = Geometric_BM(number_inputs=10, time_window=10, mu=mu, sigma=sigma, s0=1)
         paths = gbm.predict_path()
 
         Nx = 20
         Ny = 20
-        fd = joint_distribution(paths, Nx, Ny, mu, sigma)
+        fd = joint_distribution(paths, Nx, Ny, mu, s0, sigma)
 
         num_steps = 1000
         grid_st, time_st = fd.y_grid_values(num_steps)
@@ -267,47 +269,7 @@ class Test_joint_distribution(unittest.TestCase):
 
         print(num_pts)
 
-    def test_fd_match(self):
 
-        mu = 0
-        sigma = 0.1
-        s0 =0.01
-
-        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=mu, sigma=sigma, s0=s0)
-        paths = gbm.predict_path()
-
-        Nx = 30
-        Ny = 30
-        fd = joint_distribution(paths, Nx, Ny, mu, sigma)
-
-        y = fd.y
-
-        grids_diff = (y[-1] - y[0]) / Nx
-
-        num_steps = 100
-        grid_st, time_st = fd.y_grid_values(num_steps)
-        grids_density = fd.num_pts_grid(grid_st, time_st)
-
-        start = 5
-        end = 10
-        grid_density = fd.grid_density(grids_density, start, end, num_steps)
-
-        num_grids = (y[end] - y[start]) / grids_diff
-        print("start", y[start])
-        print("end", y[end])
-
-        s = np.linspace(fd.y[start],fd.y[end], 10)
-        #s = paths[1,:]
-        delta_t = 1
-
-        # print("num_grids", num_grids)
-
-        #theo_pdf = fd.fd_theoritical_3(s, delta_t, s0)
-        #theo_pdf = fd.cov_multi(s, s0)
-        theo_pdf = fd.BM_joint_dstr(s, s0, paths[1,:], delta_t)
-
-        print("Theoritical: ",theo_pdf)
-        print("WGAN: ",grid_density)
 
     def test_cov(self):
 
@@ -448,7 +410,47 @@ class Test_joint_distribution(unittest.TestCase):
         #plt.colorbar()
         #plt.show()
 
+    def test_fd_match(self):
 
+        mu = 0
+        sigma = 0.1
+        s0 =0.01
+
+        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=mu, sigma=sigma, s0=s0)
+        paths = gbm.predict_path()
+
+        Nx = 30
+        Ny = 30
+        fd = joint_distribution(Nx, Ny, mu, sigma, s0, paths)
+
+        y = np.linspace(min(paths[:,-1]),max(paths[:,-1]),Nx)
+
+        grids_diff = (y[-1] - y[0]) / Nx
+
+        num_steps = 100
+        grid_st, time_st = fd.y_grid_values(num_steps)
+        grids_density = fd.num_pts_grid(grid_st, time_st)
+
+        start = 5
+        end = 10
+        grid_density = fd.grid_density(grids_density, start, end, num_steps)
+
+        num_grids = (y[end] - y[start]) / grids_diff
+        print("start", y[start])
+        print("end", y[end])
+
+        s = np.linspace(y[start],y[end], 10)
+        #s = paths[1,:]
+        delta_t = 1
+
+        # print("num_grids", num_grids)
+
+        #theo_pdf = fd.fd_theoritical_3(s, delta_t, s0)
+        #theo_pdf = fd.cov_multi(s, s0)
+        theo_pdf = fd.BM_joint_dstr(s, s0, paths[1,:], delta_t)
+
+        print("Theoritical: ",theo_pdf)
+        print("WGAN: ",grid_density)
 
 
 
