@@ -1,12 +1,7 @@
 from numpy.random import seed
-seed(1)
-from tensorflow import set_random_seed
-set_random_seed(2)
-
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
-from stoch_process import Geometric_BM, Orn_Uh
+
 
 
 

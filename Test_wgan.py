@@ -1,11 +1,12 @@
 import unittest
 from wgan_bm import WGAN
 from stoch_process import Geometric_BM, Orn_Uh
-from finite_dimensional import joint_distribution
+from finite_dimensional import joint_distribution, BM_joint
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 from data_collect import Simulation
+from plot_result import plot_result
 
 
 
@@ -163,6 +164,17 @@ class Test_Wgan(unittest.TestCase):
 
 class Test_joint_distribution(unittest.TestCase):
 
+    def setUp(self):
+        self.num_pts = 5
+        self.num_dim = 10
+        self.gbm = Geometric_BM(number_inputs=self.num_pts, time_window=self.num_dim, mu=0, sigma=1, s0=1)
+        self.paths = self.gbm.predict_path()
+        self.mu = 0
+        self.sigma = 0.1
+        self.s0 = 0.1
+
+
+
 
     def test_coordinates(self):
 
@@ -180,277 +192,263 @@ class Test_joint_distribution(unittest.TestCase):
         print("x :", x)
         print("y :", y)
 
-    def test_tangent(self):
+    def test_BM_joint(self):
 
-        gbm = Geometric_BM(number_inputs=10, time_window=5, mu=0, sigma=1)
-        paths = gbm.predict_path()
+        nx = 5
+        ny = 5
+        s0 = 0.1
+        fd_distribution = joint_distribution(nx, ny, self.mu, self.sigma, s0)
 
-        Nx = 10
-        Ny = 10
-        fd_distribution = joint_distribution(paths, Nx, Ny)
-
-        tan = fd_distribution.tangent_timezone()
-
-        print(tan)
-
-    def test_y_grid_value(self):
-
-        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=0, sigma=0.1, s0=0.01)
-        paths = gbm.predict_path()
-
-
-        Nx = 20
-        Ny = 20
-        fd_distribution = joint_distribution(paths, Nx, Ny, 0, 1)
-
-
-        time_steps = 100
-        T_to_s, time_st = fd_distribution.y_grid_values(time_steps)
-        time = np.linspace(0, fd_distribution.T, time_steps + 1)
-
-        t_plot = np.linspace(0,fd_distribution.T,paths.shape[1])
-
-        print(T_to_s)
-
-        for i in range(paths.shape[0]):
-            plt.title("WGAN Sampling")
-            plt.plot(t_plot, paths[i, :])
-            plt.ylabel('Sample values')
-            plt.xlabel('Time')
-
-        for i in range(T_to_s.shape[1]):
-            plt.plot(time, T_to_s[:, i], '^')
-
-        plt.show()
-
-
-    def test_fd_theoritical(self):
-
-        mu = 0
-        sigma = 0.1
-        s0 = 0.01
-
-        gbm = Geometric_BM(number_inputs=100, time_window=10, mu=mu, sigma=sigma, s0=s0)
-        paths = gbm.predict_path()
-
-        Nx = 20
-        Ny = 20
-        fd= joint_distribution(paths, Nx, Ny, mu, sigma)
-
-
-        start = 0.008
-        end = 0.009
-        s = np.linspace(start, end, 10)
-        delta_t = paths.shape[1]/Ny
-
-        time = np.linspace(0,fd.T,paths.shape[1])
-
-        pdf = fd.fd_theoritical(s,delta_t)
+        print(min(self.paths[:, -1]))
+        print(max(self.paths[:,-1]))
+        path = np.linspace(0.1,0.2,10)
+        delta_t = 0.1
+        pdf = fd_distribution.BM_joint_dstr(path, delta_t)
 
         print(pdf)
 
-    def test_num_pts_grid(self):
+    def test_cubic_dens(self):
 
-        mu = 0
-        sigma = 0.1
-        s0 = 1
+        nx = 5
+        ny = 5
 
-        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=mu, sigma=sigma, s0=1)
-        paths = gbm.predict_path()
+        fd_distribution = joint_distribution(nx, ny, self.mu, self.sigma, self.s0, self.paths)
 
-        Nx = 20
-        Ny = 20
-        fd = joint_distribution(paths, Nx, Ny, mu, s0, sigma)
+        fun_pdf = fd_distribution.cubic_dens(0.01, 0.5, 100)
+        ct = 0
+        for i in range(self.paths.shape[0]):
+            for j in range(self.paths.shape[1]):
+                if self.paths[i,j] >= 1 and self.paths[i,j] <= 2:
+                    ct += 1
 
-        num_steps = 1000
-        grid_st, time_st = fd.y_grid_values(num_steps)
+        test_pdf = ct / (self.paths.shape[0]*self.paths.shape[1])
 
-        num_pts = fd.num_pts_grid(grid_st, time_st)
+        print("test:",test_pdf)
+        print(self.paths)
+        print("fun:: ", fun_pdf)
 
-        print(num_pts)
+    def test_cubid_prob(self):
 
+        nx = 5
+        ny = 5
 
+        fd_distribution = joint_distribution(nx, ny, self.mu, self.sigma, self.s0, self.paths)
 
-    def test_cov(self):
+        probs = fd_distribution.cubid_probability()
 
-        mu = 0
-        sigma = 0.1
+        print(probs)
 
-        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=mu, sigma=sigma, s0=0.01)
-        paths = gbm.predict_path()
+    def test_y_grid_values(self):
 
-        Nx = 30
-        Ny = 30
+        nx = 5
+        ny = 5
+        time_steps = 100
 
-        fd = joint_distribution(paths, Nx, Ny, mu, sigma)
+        fd = joint_distribution(nx, ny, self.mu, self.sigma, self.s0)
+        s_t, time_t = fd.y_grid_values(time_steps, self.paths)
 
+        time = np.linspace(0, self.num_dim, time_steps + 1)
 
-        s = np.linspace(fd.y[5],fd.y[6],10)
+        t_plot = np.linspace(0, self.num_dim, self.paths.shape[1])
 
-        cov = fd.cov_multi(s,0.01)
+        for i in range(self.paths.shape[0]):
+            plt.title("WGAN Sampling")
+            plt.plot(t_plot, self.paths[i, :])
+            plt.ylabel('Sample values')
+            plt.xlabel('Time')
 
-        print(cov)
+        for i in range(s_t.shape[0]):
+            plt.plot(time, s_t[i, :], '^')
 
-    def test_match_central_limit(self):
+        plt.show()
 
-        mu = 0
-        sigma = 0.1
-        s0 = 0.01
-        num_time = 10
+    def test_python_JDfunction(self):
 
-        gbm = Geometric_BM(number_inputs=10, time_window=num_time, mu=mu, sigma=sigma, s0=s0)
-        paths = gbm.predict_path()
+        nx = 5
+        ny = 5
 
+        fd = joint_distribution(nx, ny, self.mu, self.sigma, self.s0)
+        pdf = fd.BM_joint_dstr2(self.paths)
+
+        print(self.paths)
+
+        print(pdf)
+
+    def test_compaire_2gridLoss(self):
+
+        nx = 5
+        ny = 5
+        time_steps = 100
+
+        #theoritical
+        fd = joint_distribution(nx, ny, self.mu, self.sigma, self.s0)
+        s_t, time_st = fd.y_grid_values(time_steps, self.paths)
+
+        #model
         method = "uniform"
-        converge_crit = 10**(-4)
-        wgan = WGAN(paths[:,1:], method)
+        converge_crit = 10 ** (-2)
         print_itr = 1000
+        wgan = WGAN(self.paths[:, 1:], method)
         paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+        s_t_pred, time_t_pred = fd.y_grid_values(time_steps, paths_pred)
 
-        Nx = 30
-        Ny = 30
+        loss_grid = fd.grid_loss(s_t, s_t_pred, time_st)
 
-        fd = joint_distribution(paths_pred, Nx, Ny, mu, sigma)
-        t_range = 10
-        target1 = fd.y[15]
-        print(target1)
-        p_value1 = fd.central_limit(target1,s0, 1)
-        print(p_value1)
-        target2 = fd.y[20]
-        print(target2)
-        p_value2 = fd.central_limit(target2, s0, 5)
-        print(p_value2)
+        print(loss_grid)
 
+    def test_fddplot(self):
 
-        ans = p_value2-p_value1
+        nx = 5
+        ny = 5
+        time_steps = 100
 
-        num_steps = 100
-        data, time_st = fd.y_grid_values(num_steps)
+        # theoritical
+        fd = joint_distribution(nx, ny, self.mu, self.sigma, self.s0)
+        s_t, time_st = fd.y_grid_values(time_steps, self.paths)
 
-        time_range = int(5/(num_time/100))
-
-        count = 0
-
-
-        for i in range(time_range):
-            for j in range(data.shape[1]):
-                if data[i,j] >= target1 and data[i,j] <= target2:
-                    count += 1
-
-        pdf_data = count/(time_range*data.shape[1])
-
-        print(pdf_data)
-
-
-        print(ans)
-
-    def test_central_limit(self):
-
-        mu = 0
-        sigma = 0.1
-        s0 = 0.01
-        num_time = 10
-
-        gbm = Geometric_BM(number_inputs=10, time_window=num_time, mu=mu, sigma=sigma, s0=s0)
-        paths = gbm.predict_path()
-
-        Nx = 30
-        Ny = 30
-
-        fd = joint_distribution(paths, Nx, Ny, mu, sigma,s0)
-
-
-        target1 = fd.y[0]
-        target2 = fd.y[29]
-        print("target1: ", target1)
-        print("target2: ", target2)
-
-        #p1 = fd.central_limit(0.1274,s0,1)
-        #p2 = fd.central_limit(0.29997, s0, 5)
-        p1 = fd.central_limit(target1,s0,1)
-        p2 = fd.central_limit(target2, s0, 5)
-
-        print(p1)
-        print(p2)
-
-    def test_fdd_plot(self):
-
-        mu = 0
-        sigma = 0.1
-        s0 = 0.01
-        num_time = 10
-
-        gbm = Geometric_BM(number_inputs=10, time_window=num_time, mu=mu, sigma=sigma, s0=s0)
-        paths = gbm.predict_path()
-
-        Nx = 20
-        Ny = 20
-
-
-
+        # model
         method = "uniform"
-        wgan = WGAN(paths[:, 1:], method)
-
-        converge_crit = 10 ** (-4)
-        print_itr = 100
+        converge_crit = 10 ** (-2)
+        print_itr = 1000
+        wgan = WGAN(self.paths[:, 1:], method)
         paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+        s_t_pred, time_t_pred = fd.y_grid_values(time_steps, paths_pred)
 
-        fd = joint_distribution(Nx, Ny, mu, sigma, s0, paths_pred)
-        X, Y, p_T, p_data = fd.grid_loss()
+        den_1, den_2, loss = fd.grid_loss_scatter(s_t, s_t_pred, time_st)
+
+        den_theo, den_emp = fd.fdd_den_by_value(den_1, den_2)
+
+        print("den_theo: ", den_theo)
+        print("den_emp: ", den_emp)
+
+        save = "False"
+        data_type = "Geometric Brownian Motion"
+        method = "uniform"
+        graph = plot_result(save, data_type, method)
+        #graph.fdd_plot_scatter(self.paths, den_1, den_2, time_st, loss)
+        graph.fdd_plot_2Dscatter(self.paths, den_theo, den_emp)
+
+    def test_fdd3D(self):
+
+        nx = 5
+        ny = 5
+        time_steps = 10
+
+        # theoritical
+        fd = joint_distribution(nx, ny, self.mu, self.sigma, self.s0)
+        s_t, time_st = fd.y_grid_values(time_steps, self.paths)
+
+        # model
+        method = "uniform"
+        converge_crit = 10 ** (-2)
+        print_itr = 100
+        wgan = WGAN(self.paths[:, 1:], method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+        s_t_pred, time_t_pred = fd.y_grid_values(time_steps, paths_pred)
+
+        den_1, den_2, loss = fd.meshgrid_loss(s_t, s_t_pred, time_st)
+
+        #print(time_st)
+        print(s_t)
+        print(s_t_pred)
+        print(den_1)
+        print(den_2)
+
+        t_plot = np.linspace(0, self.num_dim, self.paths.shape[1])
+        time = np.linspace(0, self.num_dim, time_steps + 1)
+
+        '''for i in range(self.paths.shape[0]):
+            plt.title("WGAN Sampling")
+            plt.plot(t_plot, self.paths[i, :])
+            plt.ylabel('Sample values')
+            plt.xlabel('Time')
+
+        for i in range(s_t.shape[0]):
+            plt.plot(time, s_t[i, :], '^')
+
+        plt.show()'''
+
+        save = "False"
+        data_type = "Geometric Brownian Motion"
+        method = "uniform"
+        graph = plot_result(save, data_type, method)
+        graph.fdd_plot_3D(time_st,s_t, s_t_pred, den_1, den_2, loss)
+
+        diff = fd.Relative_Percent_Difference(den_1, den_2)
+
+        print("MAPE: ", diff)
+
+    def test_TheoEmp_loss(self):
+
+        nx = 10
+        ny = 10
+        time_steps = 100
+
+        # theoritical
+        fd = joint_distribution(nx, ny, self.mu, self.sigma, self.s0)
+        s_t, time_st = fd.y_grid_values(time_steps, self.paths)
+
+        # model
+        method = "uniform"
+        converge_crit = 10 ** (-2)
+        print_itr = 100
+        wgan = WGAN(self.paths[:, 1:], method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+        s_t_pred, time_t_pred = fd.y_grid_values(time_steps, paths_pred)
 
 
-        loss = p_T-p_data
+        den_1, den_2, loss = fd.TheoEmp_loss(s_t, s_t_pred, time_st)
 
+        save = "False"
+        data_type = "Geometric Brownian Motion"
+        method = "uniform"
+        graph = plot_result(save, data_type, method)
+        graph.fdd_plot_3D(time_st, s_t, s_t_pred, den_1, den_2, loss)
 
+        print(den_1)
 
-        print("loss: ", loss)
-        print(Y)
+        diff = fd.Relative_Percent_Difference(den_1, den_2)
 
-        #plt(loss)
-        #plt.colorbar()
-        #plt.show()
+        print("RPD: ", diff)
 
-    def test_fd_match(self):
+class Test_BM_joint(unittest.TestCase):
 
-        mu = 0
+    def test_cubid_vector(self):
+
         sigma = 0.1
-        s0 =0.01
+        s0 = 0.1
+        bm = BM_joint(sigma, s0)
 
-        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=mu, sigma=sigma, s0=s0)
-        paths = gbm.predict_path()
+        x_range = np.linspace(0,1,10)
 
-        Nx = 30
-        Ny = 30
-        fd = joint_distribution(Nx, Ny, mu, sigma, s0, paths)
+        x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = bm.cubid_vector(x_range)
 
-        y = np.linspace(min(paths[:,-1]),max(paths[:,-1]),Nx)
+        print(x10)
 
-        grids_diff = (y[-1] - y[0]) / Nx
+    def test_BM_joint_fun(self):
 
-        num_steps = 100
-        grid_st, time_st = fd.y_grid_values(num_steps)
-        grids_density = fd.num_pts_grid(grid_st, time_st)
+        sigma = 0.1
+        s0 = 0.1
+        bm = BM_joint(sigma, s0)
+        dim = 10
 
-        start = 5
-        end = 10
-        grid_density = fd.grid_density(grids_density, start, end, num_steps)
+        x_range = np.linspace(0.1, 0.8, dim)
+        x1, x2, x3, x4, x5, x6, x7, x8, x9, x10 = bm.cubid_vector(x_range)
 
-        num_grids = (y[end] - y[start]) / grids_diff
-        print("start", y[start])
-        print("end", y[end])
+        density = bm.BM_joint_fun(dim, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10)
 
-        s = np.linspace(y[start],y[end], 10)
-        #s = paths[1,:]
-        delta_t = 1
+        print(density)
 
-        # print("num_grids", num_grids)
+    def test_cubid_prob(self):
+        sigma = 0.1
+        s0 = 0.1
+        bm = BM_joint(sigma, s0)
+        dim = 10
 
-        #theo_pdf = fd.fd_theoritical_3(s, delta_t, s0)
-        #theo_pdf = fd.cov_multi(s, s0)
-        theo_pdf = fd.BM_joint_dstr(s, s0, paths[1,:], delta_t)
+        x_range = np.linspace(0.1, 0.8, dim)
+        int_val = bm.cubid_prob(x_range)
 
-        print("Theoritical: ",theo_pdf)
-        print("WGAN: ",grid_density)
+        print(int_val)
 
 
 

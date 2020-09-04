@@ -271,32 +271,6 @@ class joint_distribution():
 
         return p_value
 
-    def BM_joint_dstr(self,s, s0, path, delta_t):
-
-        var = self.sigma**2
-        dom = (np.sqrt(2*np.pi))**len(s)*np.sqrt((delta_t)**len(s))
-        #factor_sum = (np.log(s[0])-0.5*var)**2/(var*delta_t)
-        #print(factor_sum)
-        factor_sum = 0
-
-
-
-        for i in range(len(s)-1):
-            factor_sum += ((((1/self.sigma)*np.log(s[i+1]/s[i])-0.5*delta_t*var))**2)/(delta_t)
-
-
-
-        factor_sum = -factor_sum*0.5
-
-        factor = np.exp(factor_sum)
-
-        pdf = factor/dom
-
-        print(factor)
-        print(dom)
-
-        return pdf
-
     def grid_prob(self, data, time_st, target1, target2, time1, time2, start):
 
         count = 0
@@ -354,6 +328,32 @@ class joint_distribution():
                 #Y = y[j]
 
         return X, Y, p_values, p_grid
+
+    def BM_joint_dstr(self,s, s0, path, delta_t):
+
+        var = self.sigma**2
+        dom = (np.sqrt(2*np.pi))**len(s)*np.sqrt((delta_t)**len(s))
+        #factor_sum = (np.log(s[0])-0.5*var)**2/(var*delta_t)
+        #print(factor_sum)
+        factor_sum = 0
+
+
+
+        for i in range(len(s)-1):
+            factor_sum += ((((1/self.sigma)*np.log(s[i+1]/s[i])-0.5*delta_t*var))**2)/(delta_t)
+
+
+
+        factor_sum = -factor_sum*0.5
+
+        factor = np.exp(factor_sum)
+
+        pdf = factor/dom
+
+        print(factor)
+        print(dom)
+
+        return pdf
 
 
 

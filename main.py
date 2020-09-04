@@ -5,6 +5,12 @@ from data_collect import Simulation
 from gan_bm import GAN
 from finite_dimensional import joint_distribution
 from stoch_process import Geometric_BM, Orn_Uh
+import random
+import tensorflow as tf
+import matplotlib.pyplot as plt
+random.seed(0)
+np.random.seed(0)
+tf.set_random_seed(0)
 
 
 
@@ -55,7 +61,10 @@ if __name__ == "__main__":
     save = False
     process = "ou"
     model = "wgan"
-    method = "brownian"
+    method = "uniform"
+    Nx = 10
+    Ny = 10
+    time_steps = 20
 
     setup = problem_setup(method)
 
@@ -77,15 +86,17 @@ if __name__ == "__main__":
         wgan = WGAN(paths[:,1:], method)
         paths_pred, loss_d, loss_g =wgan.train(setup.converge_crit, setup.print_itr)
 
-    Nx = 50
-    Ny = 50
-    fd = joint_distribution(Nx, Ny, mu, sigma, s0, paths_pred)
+    #Finite Dimension Distribution
+    fd = joint_distribution(Nx, Ny, mu, sigma, s0)
+    s_t, time_st = fd.y_grid_values(time_steps, paths)
+    s_t_pred, time_t_pred = fd.y_grid_values(time_steps, paths_pred)
 
-    X, Y, p_T, p_data = fd.grid_loss()
+    den_1, den_2, loss = fd.meshgrid_loss(s_t, s_t_pred, time_st)
+    #den_1, den_2, loss = fd.TheoEmp_loss(s_t, s_t_pred, time_st)
 
-    loss = p_T - p_data
-    loss = np.abs(loss)
-    print(np.mean(loss))
+    diff = fd.Relative_Percent_Difference(den_1, den_2)
+    print("RPD: ", diff)
+
 
     # Data Collection
     unknown_days = paths.shape[1]-1
@@ -96,14 +107,38 @@ if __name__ == "__main__":
     graph = plot_result(save, data_type, method)
     graph.loss_plot(loss_d,loss_g)
     graph.plot_2path(paths, paths_pred, method, s0)
+    graph.plot_dstr_set_hist(g_samples, r_samples, unknown_days)
 
     if process == "gbm":
         graph.dstr_gbm(g_samples, unknown_days, s0, mu, sigma)
     if process == "ou":
         graph.dstr_ou(g_samples, unknown_days, s0, sigma, theta, t0, tend)
-    graph.fdd_plot(X, Y, loss)
+        time_st = time_st*0.1
 
-    print(loss.shape)
+
+    graph.fdd_plot_3D(time_st, s_t, s_t_pred, den_1, den_2,loss)
+
+
+
+    '''t_plot = np.linspace(0, setup.number_inputs, paths.shape[1])
+    time = np.linspace(0, setup.number_inputs, time_steps + 1)
+
+    for i in range(paths.shape[0]):
+        plt.title("WGAN Sampling")
+        plt.plot(t_plot, paths[i, :])
+        plt.ylabel('Sample values')
+        plt.xlabel('Time')
+
+    for i in range(s_t.shape[0]):
+        plt.plot(time, s_t[i, :], '^')
+
+    plt.show()'''
+
+    print(den_1)
+
+
+
+
 
 
 
