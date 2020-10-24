@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from data_collect import Simulation
 from plot_result import plot_result
+from MCInt import MC_fdd, dim_reduction
 
 
 
@@ -449,6 +450,125 @@ class Test_BM_joint(unittest.TestCase):
         int_val = bm.cubid_prob(x_range)
 
         print(int_val)
+
+    def test_dataStandardize(self):
+
+        gbm = Geometric_BM(number_inputs=10, time_window=10, mu=0, sigma=1, s0=1)
+        paths = gbm.predict_path()
+
+        data_scale = dim_reduction()
+
+        stand_data = data_scale.data_standardize(paths)
+
+        features = np.zeros(stand_data.shape[0])
+
+        for i,data in enumerate(stand_data):
+            features[i] = np.sum(data)
+
+        print(features)
+
+    def test_principle_component(self):
+        gbm = Geometric_BM(number_inputs=1000, time_window=10, mu=0, sigma=1, s0=1)
+        paths = gbm.predict_path()
+
+        data_scale = dim_reduction()
+
+        pca_set, pca_pdf = data_scale.principle_component(paths)
+
+        print(pca_set.shape)
+
+    def test_visual(self):
+        gbm = Geometric_BM(number_inputs=1000, time_window=10, mu=0, sigma=1, s0=1)
+        paths = gbm.predict_path()
+
+        data_scale = dim_reduction()
+
+        pca_components, pca_df = data_scale.principle_component(paths)
+
+        print(pca_components.shape)
+
+        data_scale.visualize(pca_components, pca_df)
+
+    def test_pca_wgan(self):
+
+        gbm = Geometric_BM(number_inputs=100, time_window=10, mu=0, sigma=1, s0=1)
+        paths = gbm.predict_path()
+
+
+        method = "uniform"
+        converge_crit = 10**(-2)
+        print_itr = 100
+
+        wgan = WGAN(paths[:, 1:], method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+
+        data_scale = dim_reduction()
+
+        pca_components_theo, pca_df_theo = data_scale.principle_component(paths[:, 1:])
+        pca_components_wgan, pca_df_wgan = data_scale.principle_component(paths_pred)
+
+        print(paths.shape)
+        print(paths_pred.shape)
+
+        data_scale.visualize(pca_components_theo, pca_df_theo)
+        data_scale.visualize(pca_components_wgan, pca_df_wgan)
+
+    def test_Mcint(self):
+
+        sigma = 0.1
+        x0 = 0.1
+        x_range = [0.1, 0.8]
+
+        MC = MC_fdd(sigma, x0, x_range)
+        MC.MC_int()
+
+class Test_MC_fdd(unittest.TestCase):
+
+    def setUp(self):
+        self.sigma = 0.1
+        self.s0 = 0.1
+        self.gbm = Geometric_BM(number_inputs=5, time_window=10, mu=0, sigma=self.sigma, s0=self.s0)
+        self.data = self.gbm.predict_path()
+
+        self.MC = MC_fdd(self.sigma, self.s0, self.data)
+
+
+    def test_multi_mean(self):
+
+        mu = self.MC.multi_mean(self.data)
+
+        print(mu)
+
+    def test_standardized(self):
+
+        drift = self.gbm.drift
+        W = self.MC.standardized(self.data[1:,1:], drift)
+
+        print(W)
+
+    def test_extract_bm(self):
+        drift = self.gbm.drift
+        self.data = self.data[1:,1:]
+        bm, stand_bm = self.MC.extract_bm(self.data, drift)
+
+        print("Brownian Motion: ")
+        print(bm)
+        print("Standardized Brownian Motion: ")
+        print(stand_bm)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
