@@ -75,9 +75,6 @@ class MC_fdd:
 
         return mean
 
-    def multi_cov(self, data):
-
-        return np.cov(data)
 
     def extract_bm(self, data, drift):
 
@@ -95,14 +92,31 @@ class MC_fdd:
 
 
 
-        driftT = np.ones_like(data)
-        T = data.shape[1]
-        for t in range(1, T):
-            driftT[:, t-1] = drift[t-1]*t
+        drift_matrix = np.ones_like(data)
+        T = data.shape[0]
+        #for t in range(1, T):
+        #    driftT[:, t-1] = drift[t-1]*t
 
-        W = (data - driftT)/self.sigma
+        for t in range(T):
+            drift_matrix = data[t,:] - drift
+
+        W = (data - drift_matrix)/self.sigma
 
         return W
+
+    def multi_cov(self, data):
+
+        return np.cov(data)
+
+    def joint_density_fun(self, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10):
+
+        vector = [x1, x2, x3, x4, x5, x6, x7, x8, x9, x10]
+
+
+
+
+
+
 
 
 

@@ -542,19 +542,38 @@ class Test_MC_fdd(unittest.TestCase):
     def test_standardized(self):
 
         drift = self.gbm.drift
-        W = self.MC.standardized(self.data[1:,1:], drift)
+        diffusion = self.gbm.diffu
 
-        print(W)
+        #print(diffusion)
+        #print(drift)
+
+        W = self.MC.standardized(self.data[:,1:], drift)
+
+        print("W: ", W)
 
     def test_extract_bm(self):
         drift = self.gbm.drift
-        self.data = self.data[1:,1:]
+        self.data = self.data[:,1:]
         bm, stand_bm = self.MC.extract_bm(self.data, drift)
 
         print("Brownian Motion: ")
         print(bm)
         print("Standardized Brownian Motion: ")
         print(stand_bm)
+
+    def test_cov(self):
+        drift = self.gbm.drift
+
+        self.data = self.data[:, 1:]
+        bm, stand_bm = self.MC.extract_bm(self.data, drift)
+
+        cov = self.MC.multi_cov(stand_bm)
+
+        print(cov)
+        multi_mean = self.MC.multi_mean(stand_bm)
+        print(multi_mean)
+
+
 
 
 
