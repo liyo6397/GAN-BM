@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from data_collect import Simulation
 from plot_result import plot_result
 from MCInt import MC_fdd, dim_reduction
+import mcint
 
 
 
@@ -528,9 +529,10 @@ class Test_MC_fdd(unittest.TestCase):
         self.sigma = 0.1
         self.s0 = 0.1
         self.gbm = Geometric_BM(number_inputs=5, time_window=10, mu=0, sigma=self.sigma, s0=self.s0)
-        self.data = self.gbm.predict_path()
+        self.data = self.gbm.predict_path()[:,1:]
+        self.drift = self.gbm.drift
 
-        self.MC = MC_fdd(self.sigma, self.s0, self.data)
+        self.MC = MC_fdd(self.sigma, self.s0, self.data, self.drift, x_range=[0.1, 0.5], marginal_x=0.3)
 
 
     def test_multi_mean(self):
@@ -564,7 +566,7 @@ class Test_MC_fdd(unittest.TestCase):
     def test_cov(self):
         drift = self.gbm.drift
 
-        self.data = self.data[:, 1:]
+        #self.data = self.data[:, 1:]
         bm, stand_bm = self.MC.extract_bm(self.data, drift)
 
         cov = self.MC.multi_cov(stand_bm)
@@ -572,6 +574,25 @@ class Test_MC_fdd(unittest.TestCase):
         print(cov)
         multi_mean = self.MC.multi_mean(stand_bm)
         print(multi_mean)
+
+    def test_marginal_density(self):
+
+        sigma = 0.1
+        x0 = 0.1
+        x_range = [0.1, 0.8]
+        marginal_x = 0.5
+
+        inputs = self.MC.domain()
+        pdf = self.MC.marginal_density_fun(inputs)
+
+        print(pdf)
+
+    def test_MCint(self):
+
+        result, error = mcint.integrate(self.MC.marginal_density_fun, self.MC.domain(), measure=1.0, n=100)
+
+        print("Result: ", result)
+        print("Error: ", error)
 
 
 

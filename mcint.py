@@ -9,13 +9,20 @@ from matplotlib import pyplot as plt
 import pandas as pd
 
 
+
 class MC_fdd:
-    def __init__(self, sigma, x0, x_range):
+    def __init__(self, sigma, x0, data, drift, x_range, marginal_x):
 
 
         self.sigma = sigma
         self.x0 = x0
         self.x_dom = x_range
+        self.data = data
+        self.drift = drift
+        self.bm, self.stand_bm = self.extract_bm(self.data, self.drift)
+        self.cov = self.multi_cov(self.stand_bm)
+        self.marginal_x = marginal_x
+
 
     def sum_pdf(self, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10):
 
@@ -106,25 +113,41 @@ class MC_fdd:
 
     def multi_cov(self, data):
 
-        return np.cov(data)
+        return np.cov(data.T)
 
-    def joint_density_fun(self, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10):
-
-        vector = [x1, x2, x3, x4, x5, x6, x7, x8, x9, x10]
+    def marginal_density_fun(self, inputs):
 
 
+        det = np.linalg.det(self.cov)
+        print(det)
+        const = 1/(2*np.pi*(det)**0.5)
+
+        #x2, x3, x4, x5, x6, x7, x8, x9, x10 = x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]
+        #vector = np.array([self.marginal_x, x2, x3, x4, x5, x6, x7, x8, x9, x10])
+        vector = []
+
+        for x in inputs:
+            vector.append(x)
+
+        vector = np.array(vector)
+
+        exp_term = 0.5*np.dot(vector, np.linalg.inv(self.cov))
+        exp_term = np.dot(exp_term, vector.T)
+
+        pdf = const*np.exp(exp_term)
+
+        return pdf
+
+    def domain(self):
+
+        while True:
+
+            sample = np.zeros(self.data.shape[1])
+            for x in range(self.data.shape[1]):
+                sample[x] = random.uniform(self.x_dom[0], self.x_dom[1])
 
 
-
-
-
-
-
-
-
-
-
-
+            yield sample
 
 
 
