@@ -7,21 +7,26 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from matplotlib import pyplot as plt
 import pandas as pd
+import mixedvines
 
 
 
 class MC_fdd:
-    def __init__(self, sigma, x0, data, drift, x_range, marginal_x):
+    def __init__(self, sigma, x0, data, drift):
 
 
         self.sigma = sigma
         self.x0 = x0
-        self.x_dom = x_range
+        self.N = 100
+        min_x = min(data[:,-1])
+        max_x = max(data[:,-1])
+
+        self.x_dom = [min_x, max_x]
         self.data = data
         self.drift = drift
         self.bm, self.stand_bm = self.extract_bm(self.data, self.drift)
-        self.cov = self.multi_cov(self.stand_bm)
-        self.marginal_x = marginal_x
+        self.cov = self.bm_cov()
+
 
 
     def sum_pdf(self, x1, x2, x3, x4, x5, x6, x7, x8, x9, x10):
@@ -70,8 +75,10 @@ class MC_fdd:
 
         result, error = mcint.integrate(self.integrand, self.sampler(), measure=1.0, n=100)
 
-        print("Result: ", result)
-        print("Error: ", error)
+        #print("Result: ", result)
+        #print("Error: ", error)
+
+        return result, error
 
     def multi_mean(self, data):
 
@@ -119,35 +126,96 @@ class MC_fdd:
 
 
         det = np.linalg.det(self.cov)
-        print(det)
+
         const = 1/(2*np.pi*(det)**0.5)
 
         #x2, x3, x4, x5, x6, x7, x8, x9, x10 = x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]
         #vector = np.array([self.marginal_x, x2, x3, x4, x5, x6, x7, x8, x9, x10])
         vector = []
 
-        for x in inputs:
-            vector.append(x)
+        for i, val in enumerate(inputs):
+            if i+1 == self.dim:
+                vector.append(self.marginal_x)
+            else:
+                vector.append(val)
 
         vector = np.array(vector)
 
         exp_term = 0.5*np.dot(vector, np.linalg.inv(self.cov))
         exp_term = np.dot(exp_term, vector.T)
 
-        pdf = const*np.exp(exp_term)
+        pdf = const*np.exp(-exp_term)
 
         return pdf
 
     def domain(self):
 
+        marg_len = self.data.shape[1]-1
         while True:
 
-            sample = np.zeros(self.data.shape[1])
-            for x in range(self.data.shape[1]):
+
+            sample = np.zeros(marg_len)
+            for x in range(marg_len):
                 sample[x] = random.uniform(self.x_dom[0], self.x_dom[1])
 
 
             yield sample
+
+    def bm_cov(self):
+
+        M = self.data.shape[1]-1
+        cov = np.zeros((M,M))
+
+        for i in range(2,M+2):
+            for j in range(2,M+2):
+                cov[i-2,j-2] = min(i,j)
+
+        #cov = self.sigma**2*cov
+
+        return cov
+
+    def MC_int2(self, dim, x):
+
+        self.dim = dim
+        self.marginal_x = x
+        result, error = mcint.integrate(self.marginal_density_fun, self.domain(), measure=1.0, n=100)
+
+        return result, error
+
+
+    def empirical_marginal_pdf(self, idx, dim):
+
+        #p_x(x)
+        dim_data = self.data[:, dim]
+        N = 100
+        cdf = self.cumalative_df(dim_data, N)
+
+        idx_a = int(dim_data[idx] / ((self.x_dom[1] - self.x_dom[0]) / N)) - 1
+        idx_b = idx_a + 1
+
+        print(f"Domain in {self.x_dom[1]}-{self.x_dom[0]}")
+        pdf = cdf[idx_a] - cdf[idx_b]
+
+        return pdf
+
+
+
+
+    def cumalative_df(self, data, N):
+
+        domain = np.linspace(self.x_dom[0], self.x_dom[1], self.N)
+        hist, bin_edges = np.histogram(data, bins=domain, density=False)
+
+
+        all_sum = sum(hist)
+        result = [sum(hist[:i])/all_sum for i in range(N)]
+
+        return result
+
+
+
+
+
 
 
 
@@ -208,15 +276,4 @@ class dim_reduction:
         ax.grid()
 
         plt.show()
-
-
-
-if __name__ == '__main__':
-    sigma = 0.1
-    x0 = 0.1
-    x_range = [0.1, 0.5]
-
-    MC = MC_fdd(sigma, x0, x_range)
-    MC.MC_int()
-
 

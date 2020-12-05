@@ -532,7 +532,7 @@ class Test_MC_fdd(unittest.TestCase):
         self.data = self.gbm.predict_path()[:,1:]
         self.drift = self.gbm.drift
 
-        self.MC = MC_fdd(self.sigma, self.s0, self.data, self.drift, x_range=[0.1, 0.5], marginal_x=0.3)
+        #self.MC = MC_fdd(self.sigma, self.s0, self.data, self.drift, x_range=[0.1, 0.5], marginal_x=0.3)
 
 
     def test_multi_mean(self):
@@ -593,6 +593,97 @@ class Test_MC_fdd(unittest.TestCase):
 
         print("Result: ", result)
         print("Error: ", error)
+
+    def test_bm_cov(self):
+
+        cov = self.MC.bm_cov()
+        det = np.linalg.det(cov)
+
+        print(det)
+        print(cov)
+
+    def test_diff_domain(self):
+
+        x_range = [self.data.min(), self.data.max()]
+        mc = MC_fdd(self.sigma, self.s0, self.data, self.drift, x_range=x_range, marginal_x=0.1)
+
+        result, error = mc.MC_int2()
+
+        print("Result: ", result)
+        print("Error: ", error)
+
+    def test_oldMC(self):
+
+        x_range = [0.3, 1]
+        mc = MC_fdd(self.sigma, self.s0, self.data, self.drift, x_range=x_range, marginal_x=0.5)
+        result, error = mc.MC_int()
+
+        print("Result: ", result)
+        print("Error: ", error)
+
+    def test_cdf(self):
+
+        paths = self.data
+        method = 'uniform'
+
+        converge_crit = 10 ** (-4)
+        print_itr = 100
+
+        wgan = WGAN(paths[:, 5:], method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+
+        data = paths_pred[:100,:]
+
+
+
+        result = self.MC.cdf(data)
+
+        print(result)
+
+    def test_cdf_index(self):
+
+        N = 100
+        domain = np.linspace(0, 20, N)
+
+        x = 11
+
+        idx_a = int(11/(20/N)) - 1
+        idx_b = idx_a + 1
+
+        print(f"Interval {domain[idx_a]} to {domain[idx_b]}")
+
+    def test_marginal_pdf(self):
+
+        num_inputs = 100
+        gbm = Geometric_BM(number_inputs=num_inputs, time_window=10, mu=0, sigma=self.sigma, s0=self.s0)
+
+        paths = gbm.predict_path()[:,1:]
+        method = 'uniform'
+
+        converge_crit = 10 ** (-4)
+        print_itr = 100
+
+        wgan = WGAN(paths, method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+
+        data = paths_pred[:num_inputs, :]
+
+        print("Data Shape:")
+        print(np.shape(data))
+        print(np.shape(gbm.drift))
+        mc = MC_fdd(self.sigma, self.s0, data, gbm.drift)
+
+        empirical_pdf = mc.empirical_marginal_pdf(2, 2)
+        theoritical_pdf = mc.MC_int2(2, 2)
+        print(empirical_pdf)
+        print(theoritical_pdf)
+
+
+
+
+
+
+
 
 
 
