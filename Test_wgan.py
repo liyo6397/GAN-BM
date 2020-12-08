@@ -9,6 +9,7 @@ from data_collect import Simulation
 from plot_result import plot_result
 from MCInt import MC_fdd, dim_reduction
 import mcint
+import math
 
 
 
@@ -642,13 +643,13 @@ class Test_MC_fdd(unittest.TestCase):
 
     def test_cdf_index(self):
 
-        N = 100
+        N = 1000
         domain = np.linspace(0, 20, N)
 
         x = 11
 
         idx_a = int(11/(20/N)) - 1
-        idx_b = idx_a + 1
+        idx_b = int(math.ceil(11.1/(20/N))) -1
 
         print(f"Interval {domain[idx_a]} to {domain[idx_b]}")
 
@@ -674,7 +675,7 @@ class Test_MC_fdd(unittest.TestCase):
         mc = MC_fdd(self.sigma, self.s0, data, gbm.drift)
 
         empirical_pdf = mc.empirical_marginal_pdf(2, 2)
-        theoritical_pdf = mc.MC_int2(2, 2)
+        theoritical_pdf, error = mc.MC_int2(2, 2)
         print(empirical_pdf)
         print(theoritical_pdf)
 

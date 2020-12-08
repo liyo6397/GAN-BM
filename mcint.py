@@ -174,10 +174,11 @@ class MC_fdd:
 
         return cov
 
-    def MC_int2(self, dim, x):
+    def MC_int2(self, dim, idx):
 
         self.dim = dim
-        self.marginal_x = x
+        dim_data = self.data[:, dim]
+        self.marginal_x = dim_data[idx]
         result, error = mcint.integrate(self.marginal_density_fun, self.domain(), measure=1.0, n=100)
 
         return result, error
@@ -187,14 +188,20 @@ class MC_fdd:
 
         #p_x(x)
         dim_data = self.data[:, dim]
-        N = 100
+        N = 1000
         cdf = self.cumalative_df(dim_data, N)
 
-        idx_a = int(dim_data[idx] / ((self.x_dom[1] - self.x_dom[0]) / N)) - 1
-        idx_b = idx_a + 1
+        #domain_range = self.x_dom[1] - self.x_dom[0]
+        domain_range = max(dim_data) - min(dim_data)
+        idx_a = int(dim_data[idx] / (domain_range / N)) - 1
+        idx_b = int(math.ceil((dim_data[idx]+0.1) / (domain_range / N))) - 1
+        #idx_b = int(math.ceil((dim_data[idx]+0.1 )/ ((self.x_dom[1] - self.x_dom[0]) / N))) - 1
 
-        print(f"Domain in {self.x_dom[1]}-{self.x_dom[0]}")
-        pdf = cdf[idx_a] - cdf[idx_b]
+        print("marginal x: ", dim_data[idx] )
+        print(f"Domain in {min(dim_data)} to {max(dim_data)}")
+        domain = np.linspace(min(dim_data), max(dim_data), N)
+        print(f"From {domain[idx_a]} to {domain[idx_b]}")
+        pdf = cdf[idx_b] - cdf[idx_a]
 
         return pdf
 
@@ -203,7 +210,7 @@ class MC_fdd:
 
     def cumalative_df(self, data, N):
 
-        domain = np.linspace(self.x_dom[0], self.x_dom[1], self.N)
+        domain = np.linspace(min(data), max(data), N)
         hist, bin_edges = np.histogram(data, bins=domain, density=False)
 
 
@@ -211,21 +218,6 @@ class MC_fdd:
         result = [sum(hist[:i])/all_sum for i in range(N)]
 
         return result
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class dim_reduction:
 
@@ -276,4 +268,5 @@ class dim_reduction:
         ax.grid()
 
         plt.show()
+
 
