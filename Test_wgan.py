@@ -644,12 +644,15 @@ class Test_MC_fdd(unittest.TestCase):
     def test_cdf_index(self):
 
         N = 1000
-        domain = np.linspace(0, 20, N)
+        domain = np.linspace(-5, 20, N)
 
         x = 11
+        ran = max(domain) - min(domain)
+        inv = ran/N
+        shifted_x = np.abs(x-min(domain))
 
-        idx_a = int(11/(20/N)) - 1
-        idx_b = int(math.ceil(11.1/(20/N))) -1
+        idx_a = int(shifted_x/inv) - 1
+        idx_b = int((shifted_x+0.1)/inv) +1
 
         print(f"Interval {domain[idx_a]} to {domain[idx_b]}")
 
@@ -669,15 +672,13 @@ class Test_MC_fdd(unittest.TestCase):
 
         data = paths_pred[:num_inputs, :]
 
-        print("Data Shape:")
-        print(np.shape(data))
-        print(np.shape(gbm.drift))
+
         mc = MC_fdd(self.sigma, self.s0, data, gbm.drift)
 
-        empirical_pdf = mc.empirical_marginal_pdf(2, 2)
-        theoritical_pdf, error = mc.MC_int2(2, 2)
-        print(empirical_pdf)
-        print(theoritical_pdf)
+        empirical_pdf = mc.empirical_marginal_pdf(2, 10)
+        theoritical_pdf, error = mc.MC_int2(2, 10)
+        print("Empirical mdf: ", empirical_pdf)
+        print("Theoriticak mdf: ",theoritical_pdf)
 
 
 

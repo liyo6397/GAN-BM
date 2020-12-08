@@ -184,23 +184,28 @@ class MC_fdd:
         return result, error
 
 
-    def empirical_marginal_pdf(self, idx, dim):
+    def empirical_marginal_pdf(self, dim, idx):
 
         #p_x(x)
         dim_data = self.data[:, dim]
-        N = 1000
+        N = 2000
         cdf = self.cumalative_df(dim_data, N)
 
-        #domain_range = self.x_dom[1] - self.x_dom[0]
+
         domain_range = max(dim_data) - min(dim_data)
-        idx_a = int(dim_data[idx] / (domain_range / N)) - 1
-        idx_b = int(math.ceil((dim_data[idx]+0.1) / (domain_range / N))) - 1
+        interval = domain_range/N
+        shifted_x = np.abs(dim_data[idx] - min(dim_data))
+
+        idx_a = int(shifted_x / interval) - 1
+        #idx_b = int((shifted_x+0.1) / interval) - 1
+        idx_b = idx_a + 1
         #idx_b = int(math.ceil((dim_data[idx]+0.1 )/ ((self.x_dom[1] - self.x_dom[0]) / N))) - 1
 
         print("marginal x: ", dim_data[idx] )
         print(f"Domain in {min(dim_data)} to {max(dim_data)}")
         domain = np.linspace(min(dim_data), max(dim_data), N)
         print(f"From {domain[idx_a]} to {domain[idx_b]}")
+
         pdf = cdf[idx_b] - cdf[idx_a]
 
         return pdf
