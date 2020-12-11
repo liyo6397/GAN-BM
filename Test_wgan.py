@@ -658,6 +658,7 @@ class Test_MC_fdd(unittest.TestCase):
 
     def test_marginal_pdf(self):
 
+        #Set up training data
         num_inputs = 100
         gbm = Geometric_BM(number_inputs=num_inputs, time_window=10, mu=0, sigma=self.sigma, s0=self.s0)
 
@@ -667,15 +668,26 @@ class Test_MC_fdd(unittest.TestCase):
         converge_crit = 10 ** (-4)
         print_itr = 100
 
+        #Start training
         wgan = WGAN(paths, method)
         paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
 
+        #Collect predicted result
         data = paths_pred[:num_inputs, :]
 
-
+        #Compute marginal probability distribution(mdf)
         mc = MC_fdd(self.sigma, self.s0, data, gbm.drift)
+        dim = 2
+        N = 1000
+        dim_data, domain, domain_range, interval = mc.cdf_domain_info(data, dim, N)
+        cdf = mc.cumalative_df(dim_data, domain)
 
-        empirical_pdf = mc.empirical_marginal_pdf(2, 10)
+        #Generate Data randomly for measuring mdf
+        sampling = np.random.uniform(min(dim_data), max(dim_data), 1000)
+        x = sampling[0]
+        print("x: ", x)
+        shifted_x = np.abs(x - min(dim_data))
+        empirical_pdf = mc.empirical_marginal_pdf(domain, interval, cdf, shifted_x)
         theoritical_pdf, error = mc.MC_int2(2, 10)
         print("Empirical mdf: ", empirical_pdf)
         print("Theoriticak mdf: ",theoritical_pdf)

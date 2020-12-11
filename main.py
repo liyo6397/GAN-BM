@@ -116,7 +116,7 @@ if __name__ == "__main__":
         time_st = time_st*0.1
 
 
-    graph.fdd_plot_3D(time_st, s_t, s_t_pred, den_1, den_2,loss)
+    #graph.fdd_plot_3D(time_st, s_t, s_t_pred, den_1, den_2,loss)
 
 
 

@@ -184,45 +184,85 @@ class MC_fdd:
         return result, error
 
 
-    def empirical_marginal_pdf(self, dim, idx):
+
+    def empirical_marginal_pdf(self, domain, interval, cdf, shifted_x):
 
         #p_x(x)
-        dim_data = self.data[:, dim]
-        N = 2000
-        cdf = self.cumalative_df(dim_data, N)
+        #dim_data = self.data[:, dim]
+        N = 3000
+        #cdf = self.cumalative_df(dim_data, N)
 
 
-        domain_range = max(dim_data) - min(dim_data)
-        interval = domain_range/N
-        shifted_x = np.abs(dim_data[idx] - min(dim_data))
+
+
 
         idx_a = int(shifted_x / interval) - 1
-        #idx_b = int((shifted_x+0.1) / interval) - 1
-        idx_b = idx_a + 1
+        adjust_idx = domain[idx_a] - shifted_x
+        if adjust_idx > 0:
+            if adjust_idx/interval > 1:
+                idx_b = idx_a - int(adjust_idx/interval)
+            else:
+                idx_b = idx_a - 1
+        else:
+            if adjust_idx / interval > 1:
+                idx_b = idx_a + int(adjust_idx / interval)
+            else:
+                idx_b = idx_a + 1
         #idx_b = int(math.ceil((dim_data[idx]+0.1 )/ ((self.x_dom[1] - self.x_dom[0]) / N))) - 1
-
-        print("marginal x: ", dim_data[idx] )
-        print(f"Domain in {min(dim_data)} to {max(dim_data)}")
-        domain = np.linspace(min(dim_data), max(dim_data), N)
-        print(f"From {domain[idx_a]} to {domain[idx_b]}")
-
-        pdf = cdf[idx_b] - cdf[idx_a]
+        print(f"From {domain[idx_a]} to {domain[idx_b]}.")
+        pdf = abs(cdf[idx_b] - cdf[idx_a])
 
         return pdf
 
 
 
 
-    def cumalative_df(self, data, N):
+    def cumalative_df(self, data, domain):
 
-        domain = np.linspace(min(data), max(data), N)
+        #domain = np.linspace(min(data), max(data), N)
+        N = len(domain)
         hist, bin_edges = np.histogram(data, bins=domain, density=False)
 
 
         all_sum = sum(hist)
         result = [sum(hist[:i])/all_sum for i in range(N)]
 
+
         return result
+
+    def cdf_domain_info(self, data, dim, N):
+
+        dim_data = data[:, dim]
+        domain = np.linspace(min(dim_data), max(dim_data), N)
+        domain_range = domain[-1] - domain[0]
+        interval = domain_range / N
+
+        return dim_data, domain, domain_range, interval
+
+def check_two_distribution(data, process):
+
+    mc = MC_fdd(process.sigma, process.s0, data, process.drift)
+    num_dim = len(data[0])
+
+    N = 3000
+    #Measure the mdf for each dimension
+    for dim in range(num_dim):
+        dim_data, domain, domain_range, interval = mc.cdf_domain_info(data, dim, N)
+
+        cdf = mc.cumalative_df(dim_data, domain)
+
+        sampling = np.random.uniform(min(dim_data), max(dim_data), 1000)
+
+        # send the sampling to compute the empirical and theoritical pdf
+        for sample in sampling:
+            shifted_x = np.abs(sample - min(dim_data))
+            mc.empirical_marginal_pdf(domain, interval, cdf, shifted_x)
+        #compute the error of 2 mdf of average
+
+
+
+
+
 
 class dim_reduction:
 
