@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
 
     save = False
-    process = "ou"
+    process = "gbm"
     model = "wgan"
     method = "uniform"
     Nx = 10
@@ -134,7 +134,7 @@ if __name__ == "__main__":
 
     plt.show()'''
 
-    print(den_1)
+
 
 
 

@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from data_collect import Simulation
 from plot_result import plot_result
-from MCInt import MC_fdd, dim_reduction
+from MCInt import MC_fdd, dim_reduction, check_two_distribution
 import mcint
 import math
 
@@ -673,7 +673,7 @@ class Test_MC_fdd(unittest.TestCase):
         paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
 
         #Collect predicted result
-        data = paths_pred[:num_inputs, :]
+        data = paths_pred[:, :]
 
         #Compute marginal probability distribution(mdf)
         mc = MC_fdd(self.sigma, self.s0, data, gbm.drift)
@@ -687,10 +687,36 @@ class Test_MC_fdd(unittest.TestCase):
         x = sampling[0]
         print("x: ", x)
         shifted_x = np.abs(x - min(dim_data))
-        empirical_pdf = mc.empirical_marginal_pdf(domain, interval, cdf, shifted_x)
-        theoritical_pdf, error = mc.MC_int2(2, 10)
+        empirical_pdf = mc.empirical_marginal_pdf(domain, interval, cdf, shifted_x,x)
+        theoritical_pdf, error = mc.MC_int2(2, x)
         print("Empirical mdf: ", empirical_pdf)
         print("Theoriticak mdf: ",theoritical_pdf)
+
+    def test_check2mdf(self):
+        # Set up training data
+        num_inputs = 10
+        gbm = Geometric_BM(number_inputs=num_inputs, time_window=10, mu=0, sigma=self.sigma, s0=self.s0)
+
+        paths = gbm.predict_path()[:, 1:]
+        method = 'uniform'
+
+        converge_crit = 10 ** (-6)
+        print_itr = 1000
+
+        # Start training
+        wgan = WGAN(paths, method)
+        paths_pred, loss_d, loss_g = wgan.train(converge_crit, print_itr)
+
+        # Collect predicted result
+        data = paths_pred[:num_inputs, :]
+
+        #check 2 distribution
+        error = check_two_distribution(data, gbm)
+
+        print("Average error for each dimension: ", error)
+        print(np.mean(error))
+
+
 
 
 

@@ -127,7 +127,8 @@ class MC_fdd:
 
         det = np.linalg.det(self.cov)
 
-        const = 1/(2*np.pi*(det)**0.5)
+        num_dim = self.data.shape[1]
+        const = 1/(np.sqrt(2*np.pi)**(num_dim/2)**(det)**0.5)
 
         #x2, x3, x4, x5, x6, x7, x8, x9, x10 = x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]
         #vector = np.array([self.marginal_x, x2, x3, x4, x5, x6, x7, x8, x9, x10])
@@ -174,30 +175,33 @@ class MC_fdd:
 
         return cov
 
-    def MC_int2(self, dim, idx):
+    def MC_int2(self, dim, value):
 
         self.dim = dim
-        dim_data = self.data[:, dim]
-        self.marginal_x = dim_data[idx]
+        #dim_data = self.data[:, dim]
+        self.marginal_x = value
         result, error = mcint.integrate(self.marginal_density_fun, self.domain(), measure=1.0, n=100)
 
         return result, error
 
 
 
-    def empirical_marginal_pdf(self, domain, interval, cdf, shifted_x):
+    def empirical_marginal_pdf(self, domain, interval, cdf, sample, shifted_x):
 
         #p_x(x)
         #dim_data = self.data[:, dim]
-        N = 3000
         #cdf = self.cumalative_df(dim_data, N)
 
+        idx_a = int(shifted_x / interval)
+
+        if idx_a == 0:
+            return abs(cdf[1] - cdf[idx_a])
+
+        if idx_a == len(domain)-1:
+            return abs(cdf[idx_a] - cdf[idx_a-1])
 
 
-
-
-        idx_a = int(shifted_x / interval) - 1
-        adjust_idx = domain[idx_a] - shifted_x
+        adjust_idx = domain[idx_a] - sample
         if adjust_idx > 0:
             if adjust_idx/interval > 1:
                 idx_b = idx_a - int(adjust_idx/interval)
@@ -209,11 +213,16 @@ class MC_fdd:
             else:
                 idx_b = idx_a + 1
         #idx_b = int(math.ceil((dim_data[idx]+0.1 )/ ((self.x_dom[1] - self.x_dom[0]) / N))) - 1
-        print(f"From {domain[idx_a]} to {domain[idx_b]}.")
-        pdf = abs(cdf[idx_b] - cdf[idx_a])
+        #print(f"From index {idx_a} to {idx_b}.")
+        #print(f"From {domain[idx_a]} with cdf {cdf[idx_a]} to {domain[idx_b]} with cdf {cdf[idx_b]}.")
+        #try:
+        #pdf = abs(cdf[idx_b] - cdf[idx_a])
+        #except (cdf[idx_b] - cdf[idx_a]) > 0.1:
 
-        return pdf
+        #print(f"From index {idx_a} to {idx_b}")
 
+        #return pdf
+        return abs(cdf[idx_b] - cdf[idx_a])
 
 
 
@@ -244,20 +253,35 @@ def check_two_distribution(data, process):
     mc = MC_fdd(process.sigma, process.s0, data, process.drift)
     num_dim = len(data[0])
 
-    N = 3000
+    sum_error = 0
+    error = np.zeros(num_dim)
+
+    N = 5000
+    num_sampling = 1000
+    sum_mdf = 0
     #Measure the mdf for each dimension
     for dim in range(num_dim):
         dim_data, domain, domain_range, interval = mc.cdf_domain_info(data, dim, N)
 
         cdf = mc.cumalative_df(dim_data, domain)
 
-        sampling = np.random.uniform(min(dim_data), max(dim_data), 1000)
+        sampling = np.random.uniform(min(dim_data), max(dim_data), num_sampling)
 
         # send the sampling to compute the empirical and theoritical pdf
         for sample in sampling:
             shifted_x = np.abs(sample - min(dim_data))
-            mc.empirical_marginal_pdf(domain, interval, cdf, shifted_x)
-        #compute the error of 2 mdf of average
+            e_mdf = mc.empirical_marginal_pdf(domain, interval, cdf, sample, shifted_x)
+            t_mdf, err = mc.MC_int2(dim, sample)
+            sum_error += (e_mdf - t_mdf)**2
+            #compute the error of 2 mdf of average
+            sum_mdf += e_mdf
+        error[dim] = np.sqrt(sum_error/num_sampling)
+        #print(f"Average of empirical mdf at dimension {dim} is {sum_mdf/num_sampling}")
+        sum_error = 0
+        sum_mdf = 0
+
+
+    return error
 
 
 
