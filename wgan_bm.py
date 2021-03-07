@@ -30,7 +30,7 @@ class WGAN():
         # G & D
         self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True,
                                                      log_device_placement=True))
-        self.G_sample = self.generator(self.z_tf, paths.shape[1])
+        self.G_sample, self.dirichlet_sample = self.generator(self.z_tf, paths.shape[1])
         self.D_output_real = self.discriminator(self.paths)
         self.D_output_fake = self.discriminator(self.G_sample)
 
@@ -41,13 +41,12 @@ class WGAN():
 
         self.disc_vars = [var for var in tf.trainable_variables() if var.name.startswith("disc")]
         self.gen_vars = [var for var in tf.trainable_variables() if var.name.startswith("gen")]
+
+        # Optimizing
         self.D_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(-self.D_loss, var_list=self.disc_vars)
         self.G_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.G_loss, var_list=self.gen_vars)
         self.DG_solver = tf.train.RMSPropOptimizer(learning_rate=5e-5).minimize(self.DG_loss)
         self.clip_D = [var.assign(tf.clip_by_value(var, -0.01, 0.01)) for var in self.disc_vars]
-
-        # Optimizing
-        #self.D_solver, self.G_solver, self.clip_D = self.optimizer()
 
 
         self.sess.run(tf.global_variables_initializer())
@@ -86,14 +85,15 @@ class WGAN():
             hidden = tf.layers.dense(inputs=z, units=self.num_units,
                                      activation=tf.nn.leaky_relu)
 
+            # For multi layers case
             # for l in range(self.layers-2):
             #    hidden = tf.layers.dense(inputs=hidden, units=self.num_units,
             #                             activation=tf.nn.leaky_relu)
 
-            output = tf.layers.dense(inputs=hidden, units=output_units) # change from path.shape[1]
+            g_output = tf.layers.dense(inputs=hidden, units=output_units) # change from path.shape[1]
+            dirichlet_output = tf.layers.dense(inputs=hidden, units=output_units, activation = tf.keras.activations.sigmoid)
 
-
-            return output
+            return g_output, dirichlet_output
 
     def discriminator(self, z):
 
@@ -101,6 +101,7 @@ class WGAN():
             hidden = tf.layers.dense(inputs=z, units=self.num_units,
                                      activation=tf.nn.relu)
 
+            # For multi layers case
             # for l in range(self.layers - 2):
             # hidden = tf.layers.dense(inputs=hidden, units=self.num_units,
             #                             activation=tf.nn.leaky_relu)
@@ -154,15 +155,10 @@ class WGAN():
     def train(self, converg_crit,print_itr):
 
         dg_loss = 1
-        D_loss = 1
-        DG_loss = 1
-        ini_loss_curr = 1
         it = 1
         ganLoss_d = []
         ganLoss_g = []
 
-
-        #while ((ini_loss_curr >= converg_crit ) or (it >= 80000 and dg_loss >= converg_crit * 10 ** (1))):
         while (dg_loss >= converg_crit or (it >= 100000 and dg_loss >= converg_crit*10**(2))):
 
             tf_dict = {self.paths_tf: self.paths, self.z_tf: self.sample_Z(self.N, self.paths.shape[1])}
@@ -175,13 +171,7 @@ class WGAN():
 
             # Run generator solver
             _, G_loss_curr = self.sess.run([self.G_solver, self.G_loss], tf_dict)
-
-            #d_loss = np.square(D_loss_curr)
-            #g_loss = np.square(G_loss_curr)
-            #dg_loss = np.sqrt(d_loss+g_loss)
-
             dg_loss, _ = self.sess.run([self.DG_loss, self.DG_solver], tf_dict)
-
 
 
             it += 1
@@ -191,7 +181,7 @@ class WGAN():
                 ganLoss_d.append(D_loss_curr)
                 ganLoss_g.append(G_loss_curr)
 
-            self.g_samp = self.sess.run(self.G_sample, feed_dict={self.z_tf: self.sample_Z(100, self.paths.shape[1])})
+            self.g_samp, diri_sample = self.sess.run([self.G_sample, self.dirichlet_sample], feed_dict={self.z_tf: self.sample_Z(100, self.paths.shape[1])})
 
         print("Iteration: %d [D loss: %f] [G loss: %f]" % (it, D_loss_curr, G_loss_curr))
         ganLoss_d.append(D_loss_curr)
@@ -201,15 +191,15 @@ class WGAN():
 
 
 
-        return self.g_samp, np.array(ganLoss_d), np.array(ganLoss_g)
+        return self.g_samp, diri_sample, np.array(ganLoss_d), np.array(ganLoss_g)
 
     def predict(self, paths):
 
         tf_dict = {self.paths_tf: paths, self.z_tf: self.sample_Z(paths.shape[0], paths.shape[1])}
 
-        new_samples = self.sess.run(self.G_sample, tf_dict)
+        new_samples, dirichlet_sample = self.sess.run([self.G_sample, self.dirichlet_sample], tf_dict)
 
-        return new_samples
+        return new_samples, dirichlet_sample
 
 
 
